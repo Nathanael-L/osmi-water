@@ -34,10 +34,10 @@ class WaterwayCollector : public osmium::relations::Collector<WaterwayCollector,
 public:
 
     explicit WaterwayCollector(location_handler_type &location_handler, DataStorage *datastorage) :
-    locationhandler(location_handler),
-    ds(datastorage),
     collector_type(),
-        m_output_buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes) {
+    m_output_buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes),
+    locationhandler(location_handler),
+    ds(datastorage) {
     }
 
     ~WaterwayCollector() {
@@ -100,8 +100,10 @@ public:
                 ds->direction_error_map[node->first] = fid;
             }
             if (names.size() == 2) {
-                if (strcmp(names[0],names[1])) name_err = true;
-                ds->name_error_map[node->first] = fid;
+                if (strcmp(names[0],names[1])) {
+                    name_err = true;
+                    ds->name_error_map[node->first] = fid;
+                }
             }
             ds->insert_node_feature(location, node_id, dir_err, name_err);
             fid++;

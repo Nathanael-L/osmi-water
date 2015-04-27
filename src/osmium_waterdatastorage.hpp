@@ -1,4 +1,10 @@
+#include <geos/index/strtree/STRtree.h>
+
 using namespace std;
+
+typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type, osmium::Location> index_neg_type;
+typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type, osmium::Location> index_pos_type;
+typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
 
 class DataStorage {
     OGRDataSource* m_data_source;
@@ -273,7 +279,7 @@ class DataStorage {
         return output;
     }
 
-    const bool get_width(const char *width_chr, float &width) {
+    bool get_width(const char *width_chr, float &width) {
         string width_str = width_chr;
         bool err = false;
 
@@ -327,6 +333,8 @@ public:
     google::sparse_hash_map<osmium::object_id_type, vector<water_way*>> node_map;
     google::sparse_hash_map<osmium::object_id_type, long> direction_error_map;
     google::sparse_hash_map<osmium::object_id_type, long> name_error_map;
+    geos::index::strtree::STRtree direction_error_tree;
+    geos::index::strtree::STRtree name_error_tree;
 
     explicit DataStorage() {
         init_db();
@@ -471,6 +479,19 @@ public:
         feature->SetField(field, value);
         if (layer->SetFeature(feature) != OGRERR_NONE) {
             cerr << "Failed to change boolean field " << error_advice << endl;
+        }
+    }
+
+    void init_trees(location_handler_type &locationhandler) {
+        for (auto& node : direction_error_map) {
+            osmium::geom::GEOSFactory<> geos_factory;
+            geos::geom::Point *point = geos_factory.create_point(locationhandler.get_node_location(node.first)).release();
+            direction_error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
+        }
+        for (auto& node : name_error_map) {
+            osmium::geom::GEOSFactory<> geos_factory;
+            geos::geom::Point *point = geos_factory.create_point(locationhandler.get_node_location(node.first)).release();
+            name_error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
         }
     }
 };
