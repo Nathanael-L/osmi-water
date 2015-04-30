@@ -78,7 +78,7 @@ public:
             assembler(relation, offsets, this->members_buffer(), m_output_buffer);
             possibly_flush_output_buffer();
         } catch (osmium::invalid_location&) {
-            // XXX ignore
+            cout << "invalid location: " << relation.id() << endl;// XXX ignore
         }
 
         for (const auto& member : relation.members()) {
@@ -111,6 +111,7 @@ public:
                 assembler(way, m_output_buffer);
                 possibly_flush_output_buffer();
             } catch (osmium::invalid_location&) {
+                cout << "invalid location: " << way.id() << endl;// XXX ignore
                 // XXX ignore
             }
         }

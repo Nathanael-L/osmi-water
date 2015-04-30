@@ -87,60 +87,77 @@ class IndicateFalsePositives: public osmium::handler::Handler {
         return false;
     }
 
-    void update_db(const string error_type, const osmium::object_id_type node_id) {
-        google::sparse_hash_map<osmium::object_id_type, long> *error_map;
-        if (error_type == "direction_error") {
-            error_map = &(ds->direction_error_map);
-        } else if (error_type == "name_error") {
-            error_map = &(ds->name_error_map);
-        } else {
-            cerr << "run update_db with error_type = 'direction_error' OR 'name_error'" << endl;
-            exit(1);
-        }
-        long error_fid;
-        error_fid = error_map->find(node_id)->second;
-        char error_advice[30 + error_type.length()];
-        sprintf(error_advice, "'%s' in node: %ld", error_type.c_str(), node_id);
-        ds->change_bool_feature('n', error_fid, error_type.c_str(), "false", error_advice);
-        error_map->erase(node_id);
+    void errormsg(const osmium::Area &area) {
+        cerr << "Error at ";
+        if (area.from_way()) cerr << "way: ";
+        else cerr << "relation: ";
+        cerr << area.orig_id() << endl;
     }
 
     void check_node(const osmium::NodeRef *node) {
         osmium::object_id_type node_id = node->ref();
-        if (ds->direction_error_map.find(node_id) != ds->direction_error_map.end()) {
-            update_db("direction_error", node_id);
-        }
-        if (ds->name_error_map.find(node_id) != ds->name_error_map.end()) {
-            update_db("name_error", node_id);
+        auto map_entry = ds->error_map.find(node_id);
+        if (map_entry != ds->error_map.end()) {
+            unsigned char &error_sum = entry->second;
+            if (error_sum >= 16) {
+                error_sum = -1; // watermouth
+            } else if (error_sum >= 8) {
+                error_sum = -2; // outflow
+            } else if (error_sum == -4) {
+                error_sum = -1;
+            } else if (error_sum == -8) {
+                error_sum = -2;
+            } else {
+                ds->insert_node_feature(location_handler.get_node_location(node_id), node_id, "",
+                        false, false, false, false, false);
+                ds->error_map.erase(node_id);
+            }
         }
     }
 
     void check_area(const osmium::Area& area) {
         osmium::geom::GEOSFactory<> geos_factory;
-        geos::geom::MultiPolygon *multipolygon = geos_factory.create_multipolygon(area).release();
-        vector<void *> results;
-        ds->direction_error_tree.query(multipolygon->getEnvelopeInternal(), results);
-        if (results.size()) {
-            for (auto result : results) {
-                osmium::object_id_type node_id = *(static_cast<osmium::object_id_type*>(result));
-                const geos::geom::Point *point;
-                point = geos_factory.create_point(location_handler.get_node_location(node_id)).release();
-                if (multipolygon->contains(point)) {
-                    update_db("direction_error", node_id);
-                }
-            }
+        geos::geom::MultiPolygon *multipolygon;
+        try {
+             multipolygon = geos_factory.create_multipolygon(area).release();
+        } catch (osmium::geometry_error) {
+            errormsg(area);
+            return;
+        } catch (...) {
+            errormsg(area);
+            cerr << "Unexpected error" << endl;
+            return;
         }
-        results.clear();
-        ds->name_error_tree.query(multipolygon->getEnvelopeInternal(), results);
-        if (results.size()) {
-            for (auto result : results) {
-                osmium::object_id_type node_id = *(static_cast<osmium::object_id_type*>(result));
-                const geos::geom::Point *point;
-                point = geos_factory.create_point(location_handler.get_node_location(node_id)).release();
-                if (multipolygon->contains(point)) {
-                    update_db("name_error", node_id);
+        if (multipolygon) {
+            vector<void *> results;
+            ds->error_tree.query(multipolygon->getEnvelopeInternal(), results);
+            if (results.size()) {
+                for (auto result : results) {
+                    osmium::object_id_type node_id = *(static_cast<osmium::object_id_type*>(result));
+                    osmium::Location location;
+                    const geos::geom::Point *point;
+                    try {
+                        location = location_handler.get_node_location(node_id);
+                        point = geos_factory.create_point(location).release();
+
+                    } catch (osmium::geometry_error) {
+                        errormsg(area);
+                        delete multipolygon;
+                        return;
+                    } catch (...) {
+                        errormsg(area);
+                        cerr << "Unexpected error" << endl;
+                        delete multipolygon;
+                        return;
+                    }
+                    if (multipolygon->contains(point)) {
+                        ds->insert_node_feature(location, node_id, "", false, false, false, false, false);
+                        ds->error_map.erase(node_id);
+                        delete point;
+                    }
                 }
             }
+            delete multipolygon;
         }
     }
 
@@ -176,7 +193,6 @@ public:
 class AreaHandler: public osmium::handler::Handler {
 
     DataStorage *ds;
-    osmium::geom::OGRFactory<> ogr_factory;
     osmium::geom::WKTFactory<> wkt_factory;
 
     bool is_valid(const osmium::Area& area) {
@@ -191,6 +207,13 @@ class AreaHandler: public osmium::handler::Handler {
         return false;
     }
 
+    void errormsg(const osmium::Area &area) {
+        cerr << "Error at ";
+        if (area.from_way()) cerr << "way: ";
+        else cerr << "relation: ";
+        cerr << area.orig_id();
+    }
+
 public:
 
     AreaHandler(DataStorage *datastorage) :
@@ -198,32 +221,23 @@ public:
     }
 
     void area(const osmium::Area& area) {
+        osmium::geom::OGRFactory<> ogr_factory;
         if (is_valid(area)) {
-            const char *white = "";
             OGRMultiPolygon *geom;
             try {
                 geom = ogr_factory.create_multipolygon(area).release();
+            } catch(osmium::geometry_error) {
+                errormsg(area);
             } catch (...) {
-                cerr << "couldn't create multipolygon" << endl;
+                errormsg(area);
+                cerr << "Unexpected error" << endl;
             }
-            osmium::object_id_type way_id;
-            osmium::object_id_type relation_id;
-            if (area.from_way()) {
-                way_id = area.orig_id();
-                relation_id = 0;
-            } else {
-                way_id = 0;
-                relation_id = area.orig_id();
+            if (geom) {
+                ds->insert_polygon_feature(geom, area);
+                OGRGeometryFactory::destroyGeometry(geom);
             }
-            const char *waterway_type = area.get_value_by_key("waterway");
-            if (!waterway_type)
-                waterway_type = white;
-            const char *name = area.get_value_by_key("name");
-            if (!name)
-                name = white;
-            ds->insert_polygon_feature(geom, way_id, relation_id, waterway_type,
-                    name, area.timestamp());
         }
+
     }
 };
 
@@ -344,6 +358,8 @@ int main(int argc, char* argv[]) {
     reader5.close();
     cerr << "Pass 5 done\n";
 
+    ds->insert_error_nodes(location_handler_way);
+
     vector<const osmium::Relation*> incomplete_relations =
             waterway_collector->get_incomplete_relations();
     if (!incomplete_relations.empty()) {
@@ -358,5 +374,6 @@ int main(int argc, char* argv[]) {
     cout << "fertig" << endl;
 
     delete waterway_collector;
+    delete waterpolygon_collector;
     google::protobuf::ShutdownProtobufLibrary();
 }
