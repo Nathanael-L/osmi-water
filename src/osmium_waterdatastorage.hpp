@@ -1,11 +1,14 @@
 #include <geos/index/strtree/STRtree.h>
-
+#include <geos/index/ItemVisitor.h>
 using namespace std;
 
 typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type, osmium::Location> index_neg_type;
 typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type, osmium::Location> index_pos_type;
 typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
 
+/***
+ * Stores all important Data over the runtime and handle the database.
+ */
 class DataStorage {
     OGRDataSource* m_data_source;
     OGRLayer* m_layer_polygons;
@@ -14,26 +17,32 @@ class DataStorage {
     OGRLayer* m_layer_nodes;
     osmium::geom::OGRFactory<> m_ogr_factory;
 
+    /***
+     * Structure to remember the waterways according to the firstnodes and lastnodes of the waterways.
+     *
+     * Categories are:
+     *  drain, brook, ditch = A
+     *  stream              = B
+     *  river               = C
+     *  other, canal        = ?
+     *  >> ignore canals, because can differ in floating direction and size
+     */
     struct WaterWay {
         osmium::object_id_type firstnode;
         osmium::object_id_type lastnode;
         string name;
         char category;
-        /***
-         *  drain, brook, ditch, stream = A
-         *  river                       = B
-         *  other, canal                = ?
-         *  >> ignore canals, because can differ in floating direction and size
-         */
 
         WaterWay(osmium::object_id_type first_node, osmium::object_id_type last_node, const char *name_, const char *type) {
             firstnode = first_node;
             lastnode = last_node;
             name = name_;
-            if ((!strcmp(type,"drain"))||(!strcmp(type,"brook"))||(!strcmp(type,"ditch"))||(!strcmp(type,"stream"))) {
+            if ((!strcmp(type,"drain"))||(!strcmp(type,"brook"))||(!strcmp(type,"ditch"))) {
                 category = 'A';
-            } else if (!strcmp(type,"river")) {
+            } else if (!strcmp(type,"stream")) {
                 category = 'B';
+            } else if (!strcmp(type,"river")) {
+                category = 'C';
             } else {
                 category = '?';
             }
@@ -317,6 +326,13 @@ class DataStorage {
             exit(1);
         }
 
+        OGRFieldDefn layer_nodes_field_way_error("way_error", OFTString);
+        layer_nodes_field_way_error.SetWidth(6);
+        if (m_layer_nodes->CreateField(&layer_nodes_field_way_error) != OGRERR_NONE) {
+            cerr << "Creating way_error field in table nodes failed.\n";
+            exit(1);
+        }
+
         if (m_layer_nodes->StartTransaction() != OGRERR_NONE) {
             cerr << "Creating nodes table failed.\n";
             exit(1);
@@ -325,7 +341,7 @@ class DataStorage {
 
     const char *get_waterway_type(const char *input) {
         if (!input) {
-            return "";
+            return nullptr;
         }
         if ((strcmp(input,"river"))&&(strcmp(input,"stream"))&&(strcmp(input,"drain"))&&(strcmp(input,"brook"))
                 &&(strcmp(input,"canal"))&&(strcmp(input,"ditch"))&&(strcmp(input,"riverbank"))) {
@@ -342,6 +358,10 @@ class DataStorage {
         return output;
     }
 
+    /***
+     * Get width as float in meter from the common formats. Detect errors within the width sting.
+     * A ',' as separator dedicates an error, but is handled.
+     */
     bool get_width(const char *width_chr, float &width) {
         string width_str = width_chr;
         bool err = false;
@@ -389,9 +409,16 @@ class DataStorage {
     }
 
 public:
-
+    /***
+     * node_map: Contains all firstnodes and lastnodes of found waterways with the
+     * names and categories of the connected ways.
+     * error_map: Contains ids of the potential error nodes (or mouths) to be checked
+     * in pass 3.
+     * error_tree: The potential error nodes remaining after pass 3 are stored in here
+     * for a geometrical analysis in pass 5.
+     */
     google::sparse_hash_map<osmium::object_id_type, vector<WaterWay*>> node_map;
-    google::sparse_hash_map<osmium::object_id_type, signed char> error_map;
+    google::sparse_hash_map<osmium::object_id_type, ErrorSum*> error_map;
     geos::index::strtree::STRtree error_tree;
 
     explicit DataStorage() {
@@ -405,6 +432,7 @@ public:
         m_layer_relations->CommitTransaction();
         m_layer_ways->CommitTransaction();
         m_layer_nodes->CommitTransaction();
+
         OGRDataSource::DestroyDataSource(m_data_source);
         OGRCleanupAll();
         for (auto wway : WaterWays) {
@@ -422,11 +450,25 @@ public:
             way_id = 0;
             relation_id = area.orig_id();
         }
-        const char *type = area.get_value_by_key("waterway");
-        if (!type)
-            type = "";
+
+        const char *natural = area.get_value_by_key("natural");
+        const char *type;
+        if ((natural) && (!strcmp(natural, "coastline"))) {
+            type = natural;
+        } else {
+            type = get_waterway_type(area.get_value_by_key("waterway"));
+            if (!type) {
+                type = area.get_value_by_key("water");
+            }
+            if (!type) {
+                type = area.get_value_by_key("landuse");
+            }
+            if (!type) type = "";
+        }
+
         const char *name = area.get_value_by_key("name");
         if (!name) name = "";
+
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_polygons->GetLayerDefn());
         if (feature->SetGeometry(geom) != OGRERR_NONE) {
             cerr << "Failed to create geometry feature for polygon of ";
@@ -434,9 +476,10 @@ public:
             else cerr << "relation: ";
             cerr << area.orig_id() << endl;
         }
+
         feature->SetField("way_id", static_cast<int>(way_id));
         feature->SetField("relation_id", static_cast<int>(relation_id));
-        feature->SetField("type", get_waterway_type(type));
+        feature->SetField("type", type);
         feature->SetField("name", name);
         feature->SetField("lastchange", get_timestamp(area.timestamp()).c_str());
         if (m_layer_polygons->CreateFeature(feature) != OGRERR_NONE) {
@@ -447,6 +490,8 @@ public:
 
     void insert_relation_feature(OGRGeometry *geom, const osmium::Relation &relation, bool contains_nowaterway) {
         const char *type = relation.get_value_by_key("waterway");
+        if (!type) type = relation.get_value_by_key("landuse");
+        if (!type) type = "";
         const char *name = relation.get_value_by_key("name");
         if (!name) name = "";
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_relations->GetLayerDefn());
@@ -474,10 +519,12 @@ public:
             type = natural;
         } else {
             type = get_waterway_type(way.get_value_by_key("waterway"));
+            if (!type) type = "";
         }
-        if (!type) type = "";
+
         const char *name = way.get_value_by_key("name");
         if (!name) name = "";
+
         const char *width;
         if (way.get_value_by_key("width")) {
             width = way.get_value_by_key("width");
@@ -486,11 +533,16 @@ public:
         } else {
             width = "";
         }
+        bool width_err;
+        float w = 0;
+        width_err = get_width(width,w);
+
         char firstnode_chr[13], lastnode_chr[13];
         osmium::object_id_type firstnode = way.nodes().cbegin()->ref();
         osmium::object_id_type lastnode = way.nodes().crbegin()->ref();
         sprintf(firstnode_chr, "%ld", firstnode);
         sprintf(lastnode_chr, "%ld", lastnode);
+
         const char *construction;
         if (way.get_value_by_key("bridge")) {
             construction = "bridge";
@@ -517,18 +569,8 @@ public:
         feature->SetField("relation", static_cast<int>(rel_id));
         feature->SetField("lastchange", get_timestamp(way.timestamp()).c_str());
         feature->SetField("construction", construction);
-
-        bool width_err;
-        if (width) {
-            float w = 0;
-            width_err = get_width(width,w);
-            if (w>-1) feature->SetField("width", w);
-        }
-        if (width_err) {
-            feature->SetField("width_error", "true");
-        } else {
-            feature->SetField("width_error", "false");
-        }
+        feature->SetField("width_error", (width_err) ? "true" : "false");
+        if (w>-1) feature->SetField("width", w);
 
         if (m_layer_ways->CreateFeature(feature) != OGRERR_NONE) {
             cerr << "Failed to create way feature.\n";
@@ -537,8 +579,7 @@ public:
         OGRFeature::DestroyFeature(feature);
     }
 
-    void insert_node_feature(osmium::Location location, osmium::object_id_type node_id, const char *specific,
-            bool dir_err, bool name_err, bool type_err, bool spring_err, bool end_err) {
+    void insert_node_feature(osmium::Location location, osmium::object_id_type node_id, ErrorSum *sum) {
         osmium::geom::OGRFactory<> ogr_factory;
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_nodes->GetLayerDefn());
         OGRPoint *point;
@@ -556,12 +597,14 @@ public:
             cerr << "Failed to create geometry feature for node: " << node_id << endl;
         }
         feature->SetField("id", id_chr);
-        feature->SetField("specific", specific);
-        feature->SetField("direction_error", (dir_err) ? "true" : "false");
-        feature->SetField("name_error", (name_err) ? "true" : "false");
-        feature->SetField("type_error", (type_err) ? "true" : "false");
-        feature->SetField("spring_error", (spring_err) ? "true" : "false");
-        feature->SetField("end_error", (end_err) ? "true" : "false");
+        if (sum->is_rivermouth()) feature->SetField("specific", "rivermouth");
+        else feature->SetField("specific", (sum->is_outflow()) ? "outflow": "");
+        feature->SetField("direction_error", (sum->is_direction_error()) ? "true" : "false");
+        feature->SetField("name_error", (sum->is_name_error()) ? "true" : "false");
+        feature->SetField("type_error", (sum->is_type_error()) ? "true" : "false");
+        feature->SetField("spring_error", (sum->is_spring_error()) ? "true" : "false");
+        feature->SetField("end_error", (sum->is_end_error()) ? "true" : "false");
+        feature->SetField("way_error", (sum->is_way_error()) ? "true" : "false");
 
         if (m_layer_nodes->CreateFeature(feature) != OGRERR_NONE) {
             cerr << "Failed to create node feature.\n";
@@ -570,6 +613,9 @@ public:
         if (point) OGRGeometryFactory::destroyGeometry(point);
     }
 
+    /***
+     * unused: Change boolean value in already inserted rows.
+     */
     void change_bool_feature(char table, const long fid, const char *field, const char *value, char *error_advice) {
         OGRFeature *feature;
         OGRLayer *layer;
@@ -595,43 +641,30 @@ public:
         OGRFeature::DestroyFeature(feature);
     }
 
-    void init_trees(location_handler_type &locationhandler) {
+    /***
+     * Insert the error nodes remaining after first indicate false positives in pass 3 into the error_tree.
+     * FIXME: memory for point isn't free'd
+     */
+    void init_tree(location_handler_type &locationhandler) {
         osmium::geom::GEOSFactory<> geos_factory;
         geos::geom::Point *point;
         for (auto& node : error_map) {
             point = geos_factory.create_point(locationhandler.get_node_location(node.first)).release();
             error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
-            //cout << &(node.first) << endl;
         }
-        delete point;
     }
 
+    /***
+     * Insert the error nodes into the nodes table.
+     */
     void insert_error_nodes(location_handler_type &locationhandler) {
         osmium::Location location;
         for (auto node : error_map) {
+            node.second->switch_poss();
             osmium::object_id_type node_id = node.first;
             location = locationhandler.get_node_location(node_id);
-            signed char error_sum = node.second;
-            if (error_sum > 0) {
-                bool direction_error = error_sum % 2;
-                bool name_error = (error_sum -= error_sum % 2) % 4;
-                bool type_error = (error_sum -= error_sum % 4) % 8;
-                bool spring_error = (error_sum -= error_sum % 8) % 16;
-                bool end_error = (error_sum -= error_sum % 16);
-                insert_node_feature(location, node_id, "", direction_error, name_error, type_error, spring_error, end_error);
-            } else {
-                switch (error_sum) {
-//                    case 0:
-//                        insert_node_feature(location, node_id, "", false, false, false, false, false);
-//                        break;
-                    case -1:
-                        insert_node_feature(location, node_id, "watermouth", false, false, false, false, false);
-                        break;
-                    case -2:
-                        insert_node_feature(location, node_id, "outflow", false, false, false, false, false);
-                        break;
-                }
-            }
+            insert_node_feature(location,node_id,node.second);
+            delete node.second;
         }
     }
 };

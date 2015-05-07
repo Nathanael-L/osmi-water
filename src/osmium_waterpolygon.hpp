@@ -3,6 +3,9 @@
 
 using namespace std;
 
+/***
+ * The WaterpolygonCollector is just collecting the areas and call them back to the AreaHandler.
+ */
 template <class TAssembler>
 class WaterpolygonCollector : public osmium::relations::Collector<WaterpolygonCollector<TAssembler>, false, true, false> {
 
@@ -44,6 +47,7 @@ public:
     bool keep_relation(const osmium::Relation& relation) {
         const char* type = relation.tags().get_value_by_key("type");
         const char* natural = relation.tags().get_value_by_key("natural");
+        const char* landuse = relation.tags().get_value_by_key("landuse");
 
         if (!type) {
             return false;
@@ -55,6 +59,12 @@ public:
             return true;
         }
         if (relation.tags().get_value_by_key("waterway")) {
+            return true;
+        }
+        if ((landuse) && (!strcmp(landuse, "reservoir"))) {
+            return true;
+        }
+        if ((landuse) && (!strcmp(landuse, "basin"))) {
             return true;
         }
         return false;
@@ -78,7 +88,7 @@ public:
             assembler(relation, offsets, this->members_buffer(), m_output_buffer);
             possibly_flush_output_buffer();
         } catch (osmium::invalid_location&) {
-            cout << "invalid location: " << relation.id() << endl;// XXX ignore
+            // XXX ignore
         }
 
         for (const auto& member : relation.members()) {
@@ -111,7 +121,6 @@ public:
                 assembler(way, m_output_buffer);
                 possibly_flush_output_buffer();
             } catch (osmium::invalid_location&) {
-                cout << "invalid location: " << way.id() << endl;// XXX ignore
                 // XXX ignore
             }
         }

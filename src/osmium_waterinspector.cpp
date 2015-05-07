@@ -26,10 +26,12 @@
 #include <geos/geom/PrecisionModel.h>
 #include <geos/geom/GeometryFactory.h>
 #include <geos/index/strtree/STRtree.h>
+#include <geos/io/WKBWriter.h>
 #include <gdal/ogr_api.h>
 #include <google/sparse_hash_set>
 #include <google/sparse_hash_map>
 
+#include "osmium_errorsum.hpp"
 #include "osmium_waterdatastorage.hpp"
 #include "osmium_waterway.hpp"
 #include "osmium_waterpolygon.hpp"
@@ -53,32 +55,47 @@ class IndicateFalsePositives: public osmium::handler::Handler {
     location_handler_type &location_handler;
     bool analyse_ways = true;
 
+    /***
+     * is_valid is differences if ways or areas are analysed.
+     * Ways: has waterway tag or natural=water.
+     * Areas: has landuse={reservoir,basin} or natural=water or has waterway tag
+     *        but NOT any waterway={iriver,drain,stream,canal,ditch}
+     *        ?good idea?
+     */
     bool is_valid(const osmium::OSMObject& osm_obj) {
-        const char *natural = osm_obj.tags().get_value_by_key("natural");
-
+        const char *waterway = osm_obj.tags().get_value_by_key("waterway");
         if (!analyse_ways) {
-            const char *waterway = osm_obj.tags().get_value_by_key("waterway");
+            const char *landuse = osm_obj.tags().get_value_by_key("landuse");
+            if ((landuse) && ((!strcmp(landuse, "reservoir")) || (!strcmp(landuse, "basin")))){
+                return true;
+            }
             if ((waterway)
-                    && ((!strcmp(waterway, "riverbank"))
-                            || (!strcmp(waterway, "river"))
-                            || (!strcmp(waterway, "drain"))
-                            || (!strcmp(waterway, "stream"))
-                            || (!strcmp(waterway, "canal"))
-                            || (!strcmp(waterway, "ditch")))) {
+                    && ((!strcmp(waterway, "river"))
+                     || (!strcmp(waterway, "drain"))
+                     || (!strcmp(waterway, "stream"))
+                     || (!strcmp(waterway, "canal"))
+                     || (!strcmp(waterway, "ditch")))) {
                 return false;
             }
             const char *water = osm_obj.tags().get_value_by_key("water");
             if ((water)
-                    && ((!strcmp(water, "riverbank"))
-                            || (!strcmp(water, "river"))
-                            || (!strcmp(water, "drain"))
-                            || (!strcmp(water, "stream"))
-                            || (!strcmp(water, "canal"))
-                            || (!strcmp(water, "ditch")))) {
+                    && ((!strcmp(water, "river"))
+                     || (!strcmp(water, "drain"))
+                     || (!strcmp(water, "stream"))
+                     || (!strcmp(water, "canal"))
+                     || (!strcmp(water, "ditch")))) {
                 return false;
             }
         }
+
+        const char *natural = osm_obj.tags().get_value_by_key("natural");
         if ((natural) && (!strcmp(natural, "water"))) {
+            return true;
+        }
+        if ((waterway) && (!strcmp(waterway, "riverbank"))) {
+            return true;
+        }
+        if ((natural) && (!strcmp(natural, "coastline"))) {
             return true;
         }
         if (osm_obj.tags().get_value_by_key("waterway")) {
@@ -88,33 +105,38 @@ class IndicateFalsePositives: public osmium::handler::Handler {
     }
 
     void errormsg(const osmium::Area &area) {
-        cerr << "Error at ";
+        cerr << "IndicateFalsePositives: Error at ";
         if (area.from_way()) cerr << "way: ";
         else cerr << "relation: ";
         cerr << area.orig_id() << endl;
     }
 
-    void check_node(const osmium::NodeRef *node) {
-        osmium::object_id_type node_id = node->ref();
-        auto map_entry = ds->error_map.find(node_id);
-        if (map_entry != ds->error_map.end()) {
-            unsigned char &error_sum = entry->second;
-            if (error_sum >= 16) {
-                error_sum = -1; // watermouth
-            } else if (error_sum >= 8) {
-                error_sum = -2; // outflow
-            } else if (error_sum == -4) {
-                error_sum = -1;
-            } else if (error_sum == -8) {
-                error_sum = -2;
+    /***
+     * Search given node in the error_map. Traced nodes are either flagged as mouth
+     * or deleted from the map and inserted as normal node.
+     */
+    void check_node(const osmium::NodeRef& node) {
+        osmium::object_id_type node_id = node.ref();
+        auto error_node = ds->error_map.find(node_id);
+        if (error_node != ds->error_map.end()) {
+            ErrorSum *sum = error_node->second;
+            if (sum->is_poss_rivermouth()) {
+                sum->set_rivermouth();
+            } else if (sum->is_poss_outflow()) {
+                sum->set_outflow();
             } else {
-                ds->insert_node_feature(location_handler.get_node_location(node_id), node_id, "",
-                        false, false, false, false, false);
+                sum->set_to_normal();
+                ds->insert_node_feature(location_handler.get_node_location(node_id), node_id, sum);
                 ds->error_map.erase(node_id);
+                delete sum;
             }
         }
     }
 
+    /***
+     * Compare given area with the locations in the error_tree. Traced nodes are either flagged as mouth
+     * or deleted from the map and inserted as normal node.
+     */
     void check_area(const osmium::Area& area) {
         osmium::geom::GEOSFactory<> geos_factory;
         geos::geom::MultiPolygon *multipolygon;
@@ -133,7 +155,12 @@ class IndicateFalsePositives: public osmium::handler::Handler {
             ds->error_tree.query(multipolygon->getEnvelopeInternal(), results);
             if (results.size()) {
                 for (auto result : results) {
-                    osmium::object_id_type node_id = *(static_cast<osmium::object_id_type*>(result));
+                    osmium::object_id_type node_id;
+                    try {
+                        node_id = *(static_cast<osmium::object_id_type*>(result));
+                    } catch (...) {
+                        continue;
+                    }
                     osmium::Location location;
                     const geos::geom::Point *point;
                     try {
@@ -151,10 +178,25 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                         return;
                     }
                     if (multipolygon->contains(point)) {
-                        ds->insert_node_feature(location, node_id, "", false, false, false, false, false);
-                        ds->error_map.erase(node_id);
-                        delete point;
+                        auto error_node = ds->error_map.find(node_id);
+                        if (error_node != ds->error_map.end()) {
+                            ErrorSum *sum = error_node->second;
+                            if (sum->is_poss_rivermouth()) {
+                                sum->set_rivermouth();
+                            } else if (sum->is_poss_outflow()) {
+                                sum->set_outflow();
+                            } else {
+                                if (!(sum->is_normal())) {
+                                    sum->set_to_normal();
+                                    ds->insert_node_feature(location_handler.get_node_location(node_id), node_id, sum);
+                                }
+                            }
+                        } else {
+                            cerr << "Enexpected error: error_tree contains node, but not error_map." << endl;
+                            exit(1);
+                        }
                     }
+                    delete point;
                 }
             }
             delete multipolygon;
@@ -173,14 +215,20 @@ public:
         analyse_ways = false;
     }
 
+    /***
+     * Iterate through all nodes of waterways in pass 3.
+     */
     void way(const osmium::Way& way) {
         if (is_valid(way) && analyse_ways) {
-            for (auto node = way.nodes().begin() + 1; node != way.nodes().end() - 1; ++node) {
+            for (auto node : way.nodes()) {
                 check_node(node);
             }
         }
     }
 
+    /***
+     * Check all waterpolygons in pass 5.
+     */
     void area(const osmium::Area& area) {
         if (is_valid(area) && !analyse_ways) {
             check_area(area);
@@ -197,10 +245,13 @@ class AreaHandler: public osmium::handler::Handler {
 
     bool is_valid(const osmium::Area& area) {
         const char* natural = area.tags().get_value_by_key("natural");
+        const char *landuse = area.tags().get_value_by_key("landuse");
         if ((natural) && (!strcmp(natural, "water"))) {
             return true;
         }
-
+        if ((landuse) && ((!strcmp(landuse, "reservoir")) || (!strcmp(landuse, "basin")))){
+            return true;
+        }
         if (area.tags().get_value_by_key("waterway")) {
             return true;
         }
@@ -208,10 +259,10 @@ class AreaHandler: public osmium::handler::Handler {
     }
 
     void errormsg(const osmium::Area &area) {
-        cerr << "Error at ";
+        cerr << "AreaHandler: Error at ";
         if (area.from_way()) cerr << "way: ";
         else cerr << "relation: ";
-        cerr << area.orig_id();
+        cerr << area.orig_id() << endl;
     }
 
 public:
@@ -300,65 +351,83 @@ int main(int argc, char* argv[]) {
     DataStorage *ds = new DataStorage();
     index_pos_type index_pos;
     index_neg_type index_neg;
-    location_handler_type location_handler_way(index_pos, index_neg);
-    location_handler_way.ignore_errors();
-    location_handler_type location_handler_area(index_pos, index_neg);
-    location_handler_area.ignore_errors();
+    location_handler_type location_handler(index_pos, index_neg);
+    location_handler.ignore_errors();
+    //location_handler_type location_handler_area(index_pos, index_neg);
+    //location_handler_area.ignore_errors();
 
-    /*osmium::area::Assembler::config_type assembler_config;
-     assembler_config.enable_debug_output(debug);*/
     osmium::area::Assembler::config_type assembler_config;
     assembler_config.enable_debug_output(debug);
     WaterwayCollector *waterway_collector = new WaterwayCollector(
-            location_handler_way, ds);
+            location_handler, ds);
     WaterpolygonCollector<osmium::area::Assembler> *waterpolygon_collector =
             new WaterpolygonCollector<osmium::area::Assembler>(assembler_config,
                     ds);
 
+    /***
+     * Pass 1: waterway_collector and waterpolygon_collector remember the ways
+     * according to a relation.
+     */
     cerr << "Pass 1...\n";
-    osmium::io::Reader reader1(input_filename);
-    waterway_collector->read_relations(reader1);
+    osmium::io::Reader reader1(input_filename, osmium::osm_entity_bits::relation);
+    while (osmium::memory::Buffer buffer = reader1.read()) {
+        waterway_collector->read_relations(buffer.begin(), buffer.end());
+        waterpolygon_collector->read_relations(buffer.begin(), buffer.end());
+    }
     reader1.close();
     cerr << "Pass 1 done\n";
 
+    /***
+     * Pass 2: Collect all waterways in and not in any relation.
+     * Insert features to ways and relations table.
+     * analyse_nodes is detecting all possibly errors and mouths.
+     */
     cerr << "Pass 2...\n";
     osmium::io::Reader reader2(input_filename);
     DumpHandler dumphandler;
-    osmium::apply(reader2, location_handler_way,
-            waterway_collector->handler(
+    osmium::apply(reader2, location_handler,
+            waterway_collector->handler());/*
                     [&dumphandler](const osmium::memory::Buffer& area_buffer) {
                         osmium::apply(area_buffer, dumphandler);
-                    }));
+                    }));*/
     waterway_collector->analyse_nodes();
     reader2.close();
     cerr << "Pass 2 done\n";
 
+    /***
+     * Pass 3: Indicate false positives by comparing the error nodes with the way nodes
+     * between the firstnode and the lastnode.
+     */
     cerr << "Pass 3...\n";
-    osmium::io::Reader reader3(input_filename);
-    IndicateFalsePositives indicate_fp(ds, location_handler_way);
+    osmium::io::Reader reader3(input_filename, osmium::osm_entity_bits::way);
+    IndicateFalsePositives indicate_fp(ds, location_handler);
     osmium::apply(reader3, indicate_fp);
     reader3.close();
     cerr << "Pass 3 done\n";
 
+    /***
+     * Pass 4: Collect all waterpolygons in and not in any relation.
+     * Insert features to polygons table.
+     * Indicate false positives by comparing the geometry of the error nodes and
+     * the polygons.
+     */
     cerr << "Pass 4...\n";
-    osmium::io::Reader reader4(input_filename);
-    waterpolygon_collector->read_relations(reader4);
-    reader4.close();
-    cerr << "Pass 4 done\n";
-
-    cerr << "Pass 5...\n";
-    osmium::io::Reader reader5(input_filename);
+    osmium::io::Reader reader4(input_filename, osmium::osm_entity_bits::way |
+            osmium::osm_entity_bits::relation);
     AreaHandler areahandler(ds);
-    ds->init_trees(location_handler_way);
+    ds->init_tree(location_handler);
     indicate_fp.analyse_polygons();
-    osmium::apply(reader5, location_handler_area, waterpolygon_collector->handler(
+    osmium::apply(reader4, location_handler, waterpolygon_collector->handler(
                     [&areahandler, &indicate_fp](const osmium::memory::Buffer& area_buffer) {
                         osmium::apply(area_buffer, areahandler, indicate_fp);
                     }));
-    reader5.close();
-    cerr << "Pass 5 done\n";
+    reader4.close();
+    cerr << "Pass 4 done\n";
 
-    ds->insert_error_nodes(location_handler_way);
+    /***
+     * Insert the error nodes into the nodes table.
+     */
+    ds->insert_error_nodes(location_handler);
 
     vector<const osmium::Relation*> incomplete_relations =
             waterway_collector->get_incomplete_relations();
@@ -371,9 +440,8 @@ int main(int argc, char* argv[]) {
     }
 
     delete ds;
-    cout << "fertig" << endl;
-
     delete waterway_collector;
     delete waterpolygon_collector;
     google::protobuf::ShutdownProtobufLibrary();
+    cout << "fertig" << endl;
 }
