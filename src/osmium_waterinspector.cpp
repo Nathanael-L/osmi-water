@@ -89,16 +89,28 @@ class IndicateFalsePositives: public osmium::handler::Handler {
         }
 
         const char *natural = osm_obj.tags().get_value_by_key("natural");
-        if ((natural) && (!strcmp(natural, "water"))) {
-            return true;
-        }
         if ((waterway) && (!strcmp(waterway, "riverbank"))) {
             return true;
         }
         if ((natural) && (!strcmp(natural, "coastline"))) {
             return true;
         }
+        if ((natural) && (!strcmp(natural, "water"))) {
+            return true;
+        }
         if (osm_obj.tags().get_value_by_key("waterway")) {
+            return true;
+        }
+        return false;
+    }
+
+    bool check_all_nodes(const osmium::Way& way) {
+        const char *waterway = way.get_value_by_key("waterway");
+        const char *natural = way.get_value_by_key("natural");
+        if ((waterway) && (!strcmp(waterway, "riverbank"))) {
+            return true;
+        }
+        if ((natural) && (!strcmp(natural, "coastline"))) {
             return true;
         }
         return false;
@@ -216,12 +228,19 @@ public:
     }
 
     /***
-     * Iterate through all nodes of waterways in pass 3.
+     * Iterate through all nodes of waterways in pass 3 if way is coastline or riverbank.
+     * Otherwise iterate just through the nodes between firstnode and lastnode.
      */
     void way(const osmium::Way& way) {
         if (is_valid(way) && analyse_ways) {
-            for (auto node : way.nodes()) {
-                check_node(node);
+            if (check_all_nodes(way)) {
+                for (auto node : way.nodes()) {
+                    check_node(node);
+                }
+            } else {
+                for (auto node = way.nodes().begin() + 1; node != way.nodes().end() - 1; ++node) {
+                    check_node(*node);
+                }
             }
         }
     }
