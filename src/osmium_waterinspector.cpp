@@ -189,7 +189,16 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                         delete multipolygon;
                         return;
                     }
-                    if (multipolygon->contains(point)) {
+                    bool contains;
+                    try {
+                        contains = multipolygon->contains(point);
+                    } catch (...) {
+                        errormsg(area);
+                        cerr << "and point: " << point->getX() << "," << point->getY() << endl;
+                        cerr << "OGR contains error." << endl;
+                        contains = false;
+                    }
+                    if (contains) {
                         auto error_node = ds->error_map.find(node_id);
                         if (error_node != ds->error_map.end()) {
                             ErrorSum *sum = error_node->second;
@@ -238,8 +247,10 @@ public:
                     check_node(node);
                 }
             } else {
-                for (auto node = way.nodes().begin() + 1; node != way.nodes().end() - 1; ++node) {
-                    check_node(*node);
+                if (way.nodes().size() > 2) {
+                    for (auto node = way.nodes().begin() + 1; node != way.nodes().end() - 1; ++node) {
+                        check_node(*node);
+                    }
                 }
             }
         }
@@ -309,12 +320,6 @@ public:
         }
 
     }
-};
-
-/* ================================================== */
-
-class DumpHandler: public osmium::handler::Handler {
-
 };
 
 /* ================================================== */
@@ -403,7 +408,6 @@ int main(int argc, char* argv[]) {
      */
     cerr << "Pass 2...\n";
     osmium::io::Reader reader2(input_filename);
-    DumpHandler dumphandler;
     osmium::apply(reader2, location_handler,
             waterway_collector->handler());/*
                     [&dumphandler](const osmium::memory::Buffer& area_buffer) {
@@ -462,5 +466,5 @@ int main(int argc, char* argv[]) {
     delete waterway_collector;
     delete waterpolygon_collector;
     google::protobuf::ShutdownProtobufLibrary();
-    cout << "fertig" << endl;
+    cout << "ready" << endl;
 }

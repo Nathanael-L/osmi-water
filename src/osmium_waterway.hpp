@@ -318,7 +318,6 @@ public:
                 /***
                  * Insert error node into nodes table: way contains of one coordinate.
                  */
-                cerr << "Error at way: " << way.id() << endl;
                 ErrorSum *sum = new ErrorSum();
                 sum->set_way_error();
                 ds->insert_node_feature(way.nodes().begin()->location(), way.nodes().begin()->ref(), sum);

@@ -52,6 +52,7 @@ class DataStorage {
     vector<WaterWay*> WaterWays;
 
     void init_db() {
+CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
         OGRRegisterAll();
 
         OGRSFDriver* driver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName("SQLite");
@@ -120,9 +121,10 @@ class DataStorage {
             exit(1);
         }
 
-        if (m_layer_polygons->StartTransaction() != OGRERR_NONE) {
+        int ogrerr = m_layer_polygons->StartTransaction();
+        if (ogrerr != OGRERR_NONE) {
             cerr << "Creating polygons table failed.\n";
-            cerr << m_layer_polygons->StartTransaction() << endl;
+            cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
 
@@ -176,8 +178,10 @@ class DataStorage {
             exit(1);
         }
 
-        if (m_layer_relations->StartTransaction() != OGRERR_NONE) {
+        ogrerr = m_layer_relations->StartTransaction();
+        if (ogrerr != OGRERR_NONE) {
             cerr << "Creating relations table failed.\n";
+            cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
 
@@ -265,8 +269,10 @@ class DataStorage {
             exit(1);
         }
 
-        if (m_layer_ways->StartTransaction() != OGRERR_NONE) {
+        ogrerr = m_layer_ways->StartTransaction();
+        if (ogrerr != OGRERR_NONE) {
             cerr << "Creating ways table failed.\n";
+            cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
 
@@ -333,8 +339,10 @@ class DataStorage {
             exit(1);
         }
 
-        if (m_layer_nodes->StartTransaction() != OGRERR_NONE) {
+        ogrerr = m_layer_nodes->StartTransaction();
+        if (ogrerr != OGRERR_NONE) {
             cerr << "Creating nodes table failed.\n";
+            cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
     }
@@ -649,8 +657,10 @@ public:
         osmium::geom::GEOSFactory<> geos_factory;
         geos::geom::Point *point;
         for (auto& node : error_map) {
-            point = geos_factory.create_point(locationhandler.get_node_location(node.first)).release();
-            error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
+            if (!(node.second->is_rivermouth()) && (!(node.second->is_outflow()))) {
+                point = geos_factory.create_point(locationhandler.get_node_location(node.first)).release();
+                error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
+            }
         }
     }
 
