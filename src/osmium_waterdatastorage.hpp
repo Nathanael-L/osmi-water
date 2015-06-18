@@ -16,6 +16,7 @@ class DataStorage {
     OGRLayer* m_layer_ways;
     OGRLayer* m_layer_nodes;
     osmium::geom::OGRFactory<> m_ogr_factory;
+    string output_filename;
 
     /***
      * Structure to remember the waterways according to the firstnodes and lastnodes of the waterways.
@@ -63,7 +64,7 @@ CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
 
         CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "FALSE");
         const char* options[] = { "SPATIALITE=TRUE", nullptr };
-        m_data_source = driver->CreateDataSource("/tmp/waterways.sqlite", const_cast<char**>(options));
+        m_data_source = driver->CreateDataSource(output_filename.c_str(), const_cast<char**>(options));
         if (!m_data_source) {
             cerr << "Creation of output file failed.\n";
             exit(1);
@@ -429,7 +430,8 @@ public:
     google::sparse_hash_map<osmium::object_id_type, ErrorSum*> error_map;
     geos::index::strtree::STRtree error_tree;
 
-    explicit DataStorage() {
+    explicit DataStorage(string outfile) :
+            output_filename(outfile) {
         init_db();
         node_map.set_deleted_key(-1);
         error_map.set_deleted_key(-1);
@@ -590,7 +592,7 @@ public:
     void insert_node_feature(osmium::Location location, osmium::object_id_type node_id, ErrorSum *sum) {
         osmium::geom::OGRFactory<> ogr_factory;
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_nodes->GetLayerDefn());
-        OGRPoint *point;
+        OGRPoint *point = NULL;
         try {
              point = ogr_factory.create_point(location).release();
         } catch (osmium::geometry_error) {
@@ -616,8 +618,9 @@ public:
 
         if (m_layer_nodes->CreateFeature(feature) != OGRERR_NONE) {
             cerr << "Failed to create node feature.\n";
+        } else {
+            OGRFeature::DestroyFeature(feature);
         }
-        OGRFeature::DestroyFeature(feature);
         if (point) OGRGeometryFactory::destroyGeometry(point);
     }
 

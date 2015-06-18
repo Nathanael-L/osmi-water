@@ -152,7 +152,8 @@ public:
              * Store the highest category of the ways flow in and of the ways flow out.
              * ignore out flowing canals and other.
              */
-            char max_in, max_out;
+            char max_in = 0;
+            char max_out = 0;
             if (category_in.size())
                 max_in = *max_element(category_in.cbegin(), category_in.cend());
             if (category_out.size())
@@ -209,7 +210,7 @@ public:
         const osmium::object_id_type rel_id = relation.id();
         osmium::geom::GEOSFactory<> geos_factory;
         vector<geos::geom::Geometry *> *linestrings = new vector<geos::geom::Geometry *>();
-        OGRGeometry *ogr_multilinestring;
+        OGRGeometry *ogr_multilinestring = NULL;
         OGRSpatialReference srs;
         srs.SetWellKnownGeogCS("WGS84");
         string wkttmp;
@@ -221,7 +222,7 @@ public:
         for (auto& member : relation.members()) {
             if (member_is_valid(member)){
                 const osmium::Way& way = way_from(member);
-                linestring_type *linestr;
+                linestring_type *linestr = NULL;
                 try {
                     linestr = geos_factory.create_linestring(way, osmium::geom::use_nodes::unique,
                             osmium::geom::direction::forward).release();
@@ -237,7 +238,7 @@ public:
                 if (!way.tags().get_value_by_key("waterway"))
                     contains_nowaterway_ways = true;
 
-                OGRGeometry *ogr_linestring;
+                OGRGeometry *ogr_linestring = NULL;
                 ogr_linestring = geos2ogr(linestr);
 
                 try {
@@ -259,7 +260,7 @@ public:
             return;
         }
         const geos::geom::GeometryFactory geom_factory = geos::geom::GeometryFactory();
-        geos::geom::GeometryCollection *geom_collection;
+        geos::geom::GeometryCollection *geom_collection = NULL;
         try {
             geom_collection = geom_factory.createGeometryCollection(linestrings);
         } catch (...) {
@@ -267,7 +268,7 @@ public:
             delete linestrings;
             return;
         }
-        geos::geom::Geometry *geos_geom;
+        geos::geom::Geometry *geos_geom = NULL;
         try {
             geos_geom = geom_collection->Union().release();
         } catch (...) {
@@ -275,17 +276,6 @@ public:
             delete geom_collection;
             return;
         }
-        /*wkttmp = geos_geom->toString();
-        char *wkt_linestring = strdup(wkttmp.c_str());
-        delete geom_collection;
-        delete geos_geom;
-        char *wkt_copy = wkt_linestring;
-        if (OGRGeometryFactory::createFromWkt(&wkt_copy,&srs,&ogr_multilinestring) != OGRERR_NONE) {
-            cerr << "Failed to create multilinestring from wkt.\n";
-            free(wkt_linestring);
-            return;
-        }
-        free(wkt_linestring);*/
         ogr_multilinestring = geos2ogr(geos_geom);
         if (!strcmp(ogr_multilinestring->getGeometryName(),"LINESTRING")) {
             ogr_multilinestring = OGRGeometryFactory::forceToMultiLineString(ogr_multilinestring);
@@ -311,7 +301,7 @@ public:
     void way_not_in_any_relation(const osmium::Way& way) {
         if (way_is_valid(way)) {
             osmium::geom::OGRFactory<> ogr_factory;
-            OGRLineString *linestring;
+            OGRLineString *linestring = NULL;
             try {
                 linestring = ogr_factory.create_linestring(way,osmium::geom::use_nodes::unique,osmium::geom::direction::forward).release();
             } catch (osmium::geometry_error) {

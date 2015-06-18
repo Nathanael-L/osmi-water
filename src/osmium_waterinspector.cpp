@@ -52,6 +52,7 @@ typedef geos::geom::LineString linestring_type;
 class IndicateFalsePositives: public osmium::handler::Handler {
 
     DataStorage *ds;
+
     location_handler_type &location_handler;
     bool analyse_ways = true;
 
@@ -151,7 +152,7 @@ class IndicateFalsePositives: public osmium::handler::Handler {
      */
     void check_area(const osmium::Area& area) {
         osmium::geom::GEOSFactory<> geos_factory;
-        geos::geom::MultiPolygon *multipolygon;
+        geos::geom::MultiPolygon *multipolygon = NULL;
         try {
              multipolygon = geos_factory.create_multipolygon(area).release();
         } catch (osmium::geometry_error) {
@@ -174,7 +175,7 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                         continue;
                     }
                     osmium::Location location;
-                    const geos::geom::Point *point;
+                    const geos::geom::Point *point = NULL;
                     try {
                         location = location_handler.get_node_location(node_id);
                         point = geos_factory.create_point(location).release();
@@ -304,7 +305,7 @@ public:
     void area(const osmium::Area& area) {
         osmium::geom::OGRFactory<> ogr_factory;
         if (is_valid(area)) {
-            OGRMultiPolygon *geom;
+            OGRMultiPolygon *geom = NULL;
             try {
                 geom = ogr_factory.create_multipolygon(area).release();
             } catch(osmium::geometry_error) {
@@ -324,12 +325,9 @@ public:
 
 /* ================================================== */
 void print_help() {
-    cout << "osmium_toogr [OPTIONS] [INFILE [OUTFILE]]\n\n"
-            << "If INFILE is not given stdin is assumed.\n"
-            << "If OUTFILE is not given 'ogr_out' is used.\n" << "\nOptions:\n"
+    cout << "osmi [OPTIONS] INFILE OUTFILE\n\n"
             << "  -h, --help           This help message\n"
-            << "  -d, --debug          Enable debug output\n"
-            << "  -f, --format=FORMAT  Output OGR format (Default: 'SQLite')\n";
+            << "  -d, --debug          Enable debug output !NOT IN USE\n" << endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -357,22 +355,22 @@ int main(int argc, char* argv[]) {
     }
 
     string input_filename;
+    string output_filename;
     int remaining_args = argc - optind;
-    if (remaining_args > 2) {
-        cerr << "Usage: " << argv[0] << " [OPTIONS] [INFILE]" << endl;
+    if ((remaining_args < 2) || (remaining_args > 4)) {
+        cerr << "Usage: " << argv[0] << " [OPTIONS] INFILE OUTFILE" << endl;
+        cerr << remaining_args;
         exit(1);
-    } else if (remaining_args == 1) {
+    } else if (remaining_args == 2) {
         input_filename = argv[optind];
+        output_filename = argv[optind + 1];
+        cout << "in: " << input_filename
+             << " out: " << output_filename;
     } else {
         input_filename = "-";
     }
 
-    ////TO REMOVE
-    if (system("rm /tmp/waterways.sqlite"))
-        cerr << "cannot remove file" << endl;
-    ////
-
-    DataStorage *ds = new DataStorage();
+    DataStorage *ds = new DataStorage(output_filename);
     index_pos_type index_pos;
     index_neg_type index_neg;
     location_handler_type location_handler(index_pos, index_neg);
@@ -382,11 +380,9 @@ int main(int argc, char* argv[]) {
 
     osmium::area::Assembler::config_type assembler_config;
     assembler_config.enable_debug_output(debug);
-    WaterwayCollector *waterway_collector = new WaterwayCollector(
-            location_handler, ds);
+    WaterwayCollector *waterway_collector = new WaterwayCollector(location_handler, ds);
     WaterpolygonCollector<osmium::area::Assembler> *waterpolygon_collector =
-            new WaterpolygonCollector<osmium::area::Assembler>(assembler_config,
-                    ds);
+            new WaterpolygonCollector<osmium::area::Assembler>(assembler_config, ds);
 
     /***
      * Pass 1: waterway_collector and waterpolygon_collector remember the ways
