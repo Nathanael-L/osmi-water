@@ -47,6 +47,29 @@ typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type,
 typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
 typedef geos::geom::LineString linestring_type;
 
+/***
+ * Benchmark
+ */
+#include "timer.h"
+timer t_total_pass4;
+timer t_treequery;
+timer t_initgeos;
+timer t_geoscontains;
+timer t_ifgeoscontains;
+timer t_mapfind;
+timer t_errorlogic;
+
+void print_pass4_time() {
+    cout << "Pass4 (total):" << t_total_pass4 << endl;
+    cout << "   tree querry:" <<  t_treequery << endl;
+    cout << "   init geos location:" << t_initgeos << endl;
+    cout << "   geos conatins:" << t_geoscontains << endl;
+    cout << "   if geos contains:" << t_ifgeoscontains << endl;
+    cout << "      map find:" << t_mapfind << endl;
+    cout << "      error logic:" << t_errorlogic << endl;
+}
+
+
 /* ================================================== */
 
 class IndicateFalsePositives: public osmium::handler::Handler {
@@ -164,10 +187,13 @@ class IndicateFalsePositives: public osmium::handler::Handler {
             return;
         }
         if (multipolygon) {
+         t_treequery.start();
             vector<void *> results;
             ds->error_tree.query(multipolygon->getEnvelopeInternal(), results);
+         t_treequery.stop();
             if (results.size()) {
                 for (auto result : results) {
+                 t_initgeos.start();
                     osmium::object_id_type node_id;
                     try {
                         node_id = *(static_cast<osmium::object_id_type*>(result));
@@ -179,7 +205,6 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                     try {
                         location = location_handler.get_node_location(node_id);
                         point = geos_factory.create_point(location).release();
-
                     } catch (osmium::geometry_error) {
                         errormsg(area);
                         delete multipolygon;
@@ -190,6 +215,8 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                         delete multipolygon;
                         return;
                     }
+                 t_initgeos.stop();
+                 t_geoscontains.start();
                     bool contains;
                     try {
                         contains = multipolygon->contains(point);
@@ -199,9 +226,14 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                         cerr << "OGR contains error." << endl;
                         contains = false;
                     }
+                 t_geoscontains.stop();
                     if (contains) {
+                     t_ifgeoscontains.start();
+                     t_mapfind.start();
                         auto error_node = ds->error_map.find(node_id);
+                     t_mapfind.stop();
                         if (error_node != ds->error_map.end()) {
+                         t_errorlogic.start();
                             ErrorSum *sum = error_node->second;
                             if (sum->is_poss_rivermouth()) {
                                 sum->set_rivermouth();
@@ -213,10 +245,12 @@ class IndicateFalsePositives: public osmium::handler::Handler {
                                     ds->insert_node_feature(location_handler.get_node_location(node_id), node_id, sum);
                                 }
                             }
+                         t_errorlogic.stop();
                         } else {
                             cerr << "Enexpected error: error_tree contains node, but not error_map." << endl;
                             exit(1);
                         }
+                     t_ifgeoscontains.stop();
                     }
                     delete point;
                 }
@@ -431,6 +465,7 @@ int main(int argc, char* argv[]) {
      * the polygons.
      */
     cerr << "Pass 4...\n";
+ t_total_pass4.start();
     osmium::io::Reader reader4(input_filename, osmium::osm_entity_bits::way |
             osmium::osm_entity_bits::relation);
     AreaHandler areahandler(ds);
@@ -441,6 +476,8 @@ int main(int argc, char* argv[]) {
                         osmium::apply(area_buffer, areahandler, indicate_fp);
                     }));
     reader4.close();
+ t_total_pass4.stop();
+ print_pass4_time();
     cerr << "Pass 4 done\n";
 
     /***
