@@ -81,7 +81,7 @@ public:
 
     bool way_is_valid(const osmium::Way& way) {
         const char* type = way.get_value_by_key("type");
-        const char *natural = way.tags().get_value_by_key("natural");
+        const char *natural = way.get_value_by_key("natural");
         const char *waterway = way.get_value_by_key("waterway");
         if ((type) && ((!strcmp(type, "multipolygon")) || (!strcmp(type, "boundary")))) {
             return false;
@@ -119,7 +119,12 @@ public:
         for (auto node = ds->node_map.begin(); node != ds->node_map.end(); ++node) {
             ErrorSum *sum = new ErrorSum();
             osmium::object_id_type node_id = node->first;
-            location = locationhandler.get_node_location(node_id);
+            try {
+                location = locationhandler.get_node_location(node_id);
+            } catch (...) {
+                cerr << "node without location: " << node_id << endl;
+                continue;
+            }
             count_fn = 0; count_ln = 0;
             names.clear(); category_in.clear(); category_out.clear();
             for (auto wway : node->second) {
@@ -220,7 +225,7 @@ public:
          * to union them later. Then as ORG linestring to insert them into table ways.
          */
         for (auto& member : relation.members()) {
-            if (member_is_valid(member)){
+            if (member_is_valid(member)) {
                 const osmium::Way& way = way_from(member);
                 linestring_type *linestr = NULL;
                 try {
@@ -234,7 +239,10 @@ public:
                     cerr << "  Unexpected error" << endl;
                     continue;
                 }
-                linestrings->push_back(linestr);
+                if (linestr)
+                    linestrings->push_back(linestr);
+                else
+                    continue;
                 if (!way.tags().get_value_by_key("waterway"))
                     contains_nowaterway_ways = true;
 
@@ -278,7 +286,13 @@ public:
         }
         ogr_multilinestring = geos2ogr(geos_geom);
         if (!strcmp(ogr_multilinestring->getGeometryName(),"LINESTRING")) {
-            ogr_multilinestring = OGRGeometryFactory::forceToMultiLineString(ogr_multilinestring);
+            try {
+                ogr_multilinestring = OGRGeometryFactory::forceToMultiLineString(ogr_multilinestring);
+            } catch (...) {
+                delete geom_collection;
+                delete geos_geom;
+                return;
+            }
         }
         try {
             ds->insert_relation_feature(ogr_multilinestring, relation, contains_nowaterway_ways);
