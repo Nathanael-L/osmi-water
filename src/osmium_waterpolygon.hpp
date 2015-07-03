@@ -70,6 +70,32 @@ public:
         return false;
     }
 
+    bool way_is_valid(const osmium::Way& way) {
+        const char* type = way.tags().get_value_by_key("type");
+        const char* natural = way.tags().get_value_by_key("natural");
+        const char* landuse = way.tags().get_value_by_key("landuse");
+
+        /*if (!type) {
+            return false;
+        }
+        if ((strcmp(type, "multipolygon")) && (strcmp(type, "boundary"))) {
+            return false;
+        }*/
+        if ((natural) && (!strcmp(natural, "water"))) {
+            return true;
+        }
+        if (way.tags().get_value_by_key("waterway")) {
+            return true;
+        }
+        if ((landuse) && (!strcmp(landuse, "reservoir"))) {
+            return true;
+        }
+        if ((landuse) && (!strcmp(landuse, "basin"))) {
+            return true;
+        }
+        return false;
+    }
+
     bool keep_member(const osmium::relations::RelationMeta& /*relation_meta*/, const osmium::RelationMember& member) {
         // We are only interested in members of type way.
         return member.type() == osmium::item_type::way;
@@ -114,14 +140,16 @@ public:
     }
 
     void way_not_in_any_relation(const osmium::Way& way) {
-        if (way.nodes().size() > 3 && way.ends_have_same_location()) {
-            // way is closed and has enough nodes, build simple multipolygon
-            try {
-                TAssembler assembler(m_assembler_config);
-                assembler(way, m_output_buffer);
-                possibly_flush_output_buffer();
-            } catch (osmium::invalid_location&) {
-                // XXX ignore
+        if (way_is_valid(way)) {
+            if (way.nodes().size() > 3 && way.ends_have_same_location()) {
+                // way is closed and has enough nodes, build simple multipolygon
+                try {
+                    TAssembler assembler(m_assembler_config);
+                    assembler(way, m_output_buffer);
+                    possibly_flush_output_buffer();
+                } catch (osmium::invalid_location&) {
+                    // XXX ignore
+                }
             }
         }
     }
