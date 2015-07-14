@@ -106,7 +106,7 @@ public:
 
     void way_not_in_any_relation(const osmium::Way& way) {
         if (way_is_valid(way)) {
-            if (way.nodes().size() > 3 && way.ends_have_same_location()) {
+            if (way.nodes().size() > 3 && way.ends_have_same_id()) {
                 // way is closed and has enough nodes, build simple multipolygon
                 try {
                     TAssembler assembler(m_assembler_config);
