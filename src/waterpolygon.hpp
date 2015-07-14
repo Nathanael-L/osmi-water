@@ -11,9 +11,12 @@
 using namespace std;
 
 template <class TAssembler>
-class WaterpolygonCollector : public osmium::relations::Collector<WaterpolygonCollector<TAssembler>, false, true, false> {
+class WaterpolygonCollector :  
+            public osmium::relations::Collector<WaterpolygonCollector<TAssembler>,
+                                                false, true, false> {
 
-    typedef typename osmium::relations::Collector<WaterpolygonCollector<TAssembler>, false, true, false> collector_type;
+    typedef typename osmium::relations::Collector<WaterpolygonCollector<TAssembler>,
+                                                  false, true, false> collector_type;
 
     typedef typename TAssembler::config_type assembler_config_type;
     const assembler_config_type m_assembler_config;
@@ -46,51 +49,17 @@ public:
     }
 
     bool keep_relation(const osmium::Relation& relation) {
-        const char* type = relation.tags().get_value_by_key("type");
-        const char* natural = relation.tags().get_value_by_key("natural");
-        const char* landuse = relation.tags().get_value_by_key("landuse");
-
-        if (!type) {
-            return false;
-        }
-        if ((strcmp(type, "multipolygon")) && (strcmp(type, "boundary"))) {
-            return false;
-        }
-        if ((natural) && (!strcmp(natural, "water"))) {
-            return true;
-        }
-        if (relation.tags().get_value_by_key("waterway")) {
-            return true;
-        }
-        if ((landuse) && (!strcmp(landuse, "reservoir"))) {
-            return true;
-        }
-        if ((landuse) && (!strcmp(landuse, "basin"))) {
-            return true;
-        }
-        return false;
+        bool is_relation = true;
+        return TagCheck::is_waterpolygon(relation, is_relation);
     }
 
     bool way_is_valid(const osmium::Way& way) {
-        const char* natural = way.tags().get_value_by_key("natural");
-        const char* landuse = way.tags().get_value_by_key("landuse");
-
-        if ((natural) && (!strcmp(natural, "water"))) {
-            return true;
-        }
-        if (way.tags().get_value_by_key("waterway")) {
-            return true;
-        }
-        if ((landuse) && (!strcmp(landuse, "reservoir"))) {
-            return true;
-        }
-        if ((landuse) && (!strcmp(landuse, "basin"))) {
-            return true;
-        }
-        return false;
+        bool is_relation = false;
+        return TagCheck::is_waterpolygon(way, is_relation);        
     }
 
-    bool keep_member(const osmium::relations::RelationMeta& /*relation_meta*/, const osmium::RelationMember& member) {
+    bool keep_member(const osmium::relations::RelationMeta&,
+            const osmium::RelationMember& member) {
         // We are only interested in members of type way.
         return member.type() == osmium::item_type::way;
     }
@@ -114,7 +83,8 @@ public:
         for (const auto& member : relation.members()) {
             if (member.ref() != 0) {
                 auto& mmv = this->member_meta(member.type());
-                auto range = std::equal_range(mmv.begin(), mmv.end(), osmium::relations::MemberMeta(member.ref()));
+                auto range = std::equal_range(mmv.begin(), mmv.end(), 
+                        osmium::relations::MemberMeta(member.ref()));
                 assert(range.first != range.second);
 
                 // if this is the last time this object was needed
@@ -124,7 +94,8 @@ public:
                 }
 
                 for (auto it = range.first; it != range.second; ++it) {
-                    if (!it->removed() && relation.id() == this->get_relation(it->relation_pos()).id()) {
+                    if (!it->removed() && relation.id() == 
+                                this->get_relation(it->relation_pos()).id()) {
                         it->remove();
                         break;
                     }
@@ -153,7 +124,8 @@ public:
     }
 
     osmium::memory::Buffer read() {
-        osmium::memory::Buffer buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes);
+        osmium::memory::Buffer buffer(initial_output_buffer_size, 
+                osmium::memory::Buffer::auto_grow::yes);
         std::swap(buffer, m_output_buffer);
         return buffer;
     }

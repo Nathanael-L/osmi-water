@@ -58,25 +58,13 @@ public:
     }
 
     bool keep_relation(const osmium::Relation& relation) const {
-        const char* type = relation.get_value_by_key("type");
-        const char* natural = relation.get_value_by_key("natural");
-        const char* waterway = relation.get_value_by_key("waterway");
-        if ((type) && ((!strcmp(type, "multipolygon")) || (!strcmp(type, "boundary")))) {
-            return false;
-        }
-        if ((waterway) && (!strcmp(waterway, "riverbank"))) {
-            return false;
-        }
-        if ((natural) && (!strcmp(natural, "coastline"))) {
-            return false;
-        }
-        if ((type) && (!strcmp(type, "waterway"))) {
-            return true;
-        }
-        if (waterway) {
-            return true;
-        }
-        return false;
+        bool is_relation = true;
+        return TagCheck::is_waterway(relation, is_relation);
+    }
+
+    bool way_is_valid(const osmium::Way& way) {
+        bool is_relation = false;
+        return TagCheck::is_waterway(way, is_relation);
     }
 
     bool keep_member(const osmium::relations::RelationMeta& /*relation_meta*/, const osmium::RelationMember& member) const {
@@ -85,25 +73,6 @@ public:
 
     bool member_is_valid(const osmium::RelationMember& member) {
         return member.type() == osmium::item_type::way;
-    }
-
-    bool way_is_valid(const osmium::Way& way) {
-        const char* type = way.get_value_by_key("type");
-        const char *natural = way.get_value_by_key("natural");
-        const char *waterway = way.get_value_by_key("waterway");
-        if ((type) && ((!strcmp(type, "multipolygon")) || (!strcmp(type, "boundary")))) {
-            return false;
-        }
-        if ((waterway) && (!strcmp(waterway, "riverbank"))) {
-            return false;
-        }
-        if ((natural) && (!strcmp(natural, "coastline"))) {
-            return false;
-        }
-        if (waterway) {
-            return true;
-        }
-        return false;
     }
 
     const osmium::Way& way_from(const osmium::RelationMember& member) {
@@ -249,12 +218,15 @@ public:
                     cerr << "  Unexpected error" << endl;
                     continue;
                 }
-                if (linestr)
+                if (linestr) {
                     linestrings->push_back(linestr);
-                else
+                } else {
                     continue;
-                if (!way.tags().get_value_by_key("waterway"))
+                }
+
+                if (TagCheck::has_waterway_tag(way)) {
                     contains_nowaterway_ways = true;
+                }
 
                 OGRGeometry *ogr_linestring = nullptr;
                 ogr_linestring = geos2ogr(linestr);

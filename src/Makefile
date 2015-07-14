@@ -44,7 +44,7 @@ PROGRAMS := osmi
 
 all: $(PROGRAMS)
 
-osmi: osmium_waterinspector.cpp Makefile *.hpp $(other_compiler_file)
+osmi: waterinspector.cpp Makefile *.hpp $(other_compiler_file)
 	$(CXX) $(CXXFLAGS) $(CXXFLAGS_WARNINGS) $(CXXFLAGS_OGR) -o $@ $< $(LDFLAGS) $(LIB_IO) $(LIB_GEOS) $(LIB_OGR) $(LIB_PRGOPT) ; touch $(this_compiler_file)
 
 last_use_of_clang.tmp:

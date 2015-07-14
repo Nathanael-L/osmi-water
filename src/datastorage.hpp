@@ -421,6 +421,14 @@ class DataStorage {
         return err;
     }
 
+    void remember_way(osmium::object_id_type first_node,osmium::object_id_type last_node,
+                      const char *name, const char *type) {
+        WaterWay *wway = new WaterWay(first_node, last_node, name, type);
+        waterways.push_back(wway);
+        node_map[first_node].push_back(wway);
+        node_map[last_node].push_back(wway);
+    }
+
 public:
     /***
      * node_map: Contains all first_nodes and last_nodes of found waterways with the
@@ -465,23 +473,8 @@ public:
             relation_id = area.orig_id();
         }
 
-        const char *natural = area.get_value_by_key("natural");
-        const char *type;
-        if ((natural) && (!strcmp(natural, "coastline"))) {
-            type = natural;
-        } else {
-            type = get_waterway_type(area.get_value_by_key("waterway"));
-            if (!type) {
-                type = area.get_value_by_key("water");
-            }
-            if (!type) {
-                type = area.get_value_by_key("landuse");
-            }
-            if (!type) type = "";
-        }
-
-        const char *name = area.get_value_by_key("name");
-        if (!name) name = "";
+        const char *type = TagCheck::get_polygon_type(area);
+        const char *name = TagCheck::get_name(area);
 
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_polygons->GetLayerDefn());
         if (feature->SetGeometry(geom) != OGRERR_NONE) {
@@ -503,15 +496,14 @@ public:
     }
 
     void insert_relation_feature(OGRGeometry *geom, const osmium::Relation &relation, bool contains_nowaterway) {
-        const char *type = relation.get_value_by_key("waterway");
-        if (!type) type = relation.get_value_by_key("landuse");
-        if (!type) type = "";
-        const char *name = relation.get_value_by_key("name");
-        if (!name) name = "";
+        const char *type = TagCheck::get_waterway_type(relation);
+        const char *name = TagCheck::get_name(relation);
+
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_relations->GetLayerDefn());
         if (feature->SetGeometry(geom) != OGRERR_NONE) {
             cerr << "Failed to create geometry feature for relation: " << relation.id() << endl;
         }
+
         feature->SetField("id", static_cast<int>(relation.id()));
         feature->SetField("type", get_waterway_type(type));
         feature->SetField("name", name);
@@ -527,26 +519,11 @@ public:
     }
 
     void insert_way_feature(OGRGeometry *geom, const osmium::Way &way, osmium::object_id_type rel_id) {
-        const char *natural = way.get_value_by_key("natural");
-        const char *type;
-        if ((natural) && (!strcmp(natural, "coastline"))) {
-            type = natural;
-        } else {
-            type = get_waterway_type(way.get_value_by_key("waterway"));
-            if (!type) type = "";
-        }
+        const char *type = TagCheck::get_waterway_type(way);
+        const char *name = TagCheck::get_name(way);
+        const char *width = TagCheck::get_width(way);
+        const char *construction = TagCheck::get_construction(way);
 
-        const char *name = way.get_value_by_key("name");
-        if (!name) name = "";
-
-        const char *width;
-        if (way.get_value_by_key("width")) {
-            width = way.get_value_by_key("width");
-        } else if (way.get_value_by_key("est_width")) {
-            width = way.get_value_by_key("est_width");
-        } else {
-            width = "";
-        }
         bool width_err;
         float w = 0;
         width_err = get_width(width,w);
@@ -556,20 +533,6 @@ public:
         osmium::object_id_type last_node = way.nodes().crbegin()->ref();
         sprintf(first_node_chr, "%ld", first_node);
         sprintf(last_node_chr, "%ld", last_node);
-
-        const char *construction;
-        if (way.get_value_by_key("bridge")) {
-            construction = "bridge";
-        } else if (way.get_value_by_key("tunnel")) {
-            construction = "tunnel";
-        } else {
-            construction = "";
-        }
-
-        WaterWay *wway = new WaterWay(first_node, last_node, name, type);
-        waterways.push_back(wway);
-        node_map[first_node].push_back(wway);
-        node_map[last_node].push_back(wway);
 
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_ways->GetLayerDefn());
         if (feature->SetGeometry(geom) != OGRERR_NONE) {
@@ -591,6 +554,8 @@ public:
         }
 
         OGRFeature::DestroyFeature(feature);
+        
+        remember_way(first_node, last_node, name, type);
     }
 
     void insert_node_feature(osmium::Location location, osmium::object_id_type node_id, ErrorSum *sum) {
@@ -645,7 +610,8 @@ public:
                 layer = m_layer_nodes;
                 break;
             default:
-                cerr << "change_bool_feature expects {'r','w','n'} = {relations, ways, nodes}" << endl;
+                cerr << "change_bool_feature expects {'r','w','n'}" <<
+                        " = {relations, ways, nodes}" << endl;
                 exit(1);
         }
         feature = layer->GetFeature(fid);
@@ -657,7 +623,8 @@ public:
     }
 
     /***
-     * Insert the error nodes remaining after first indicate false positives in pass 3 into the error_tree.
+     * Insert the error nodes remaining after first indicate false positives 
+     * in pass 3 into the error_tree.
      * FIXME: memory for point isn't free'd
      */
     void init_tree(location_handler_type &location_handler) {
@@ -665,9 +632,17 @@ public:
         geos::geom::Point *point;
         for (auto& node : error_map) {
             if (!(node.second->is_rivermouth()) && (!(node.second->is_outflow()))) {
-                point = geos_factory.create_point(location_handler.get_node_location(node.first)).release();
-                error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
+                point = geos_factory.create_point(location_handler.get_node_location(node.first))
+                                    .release();
+                error_tree.insert(point->getEnvelopeInternal(),
+                                  (osmium::object_id_type *) &(node.first));
             }
+        }
+        if (error_map.size() == 0) {
+            geos::geom::GeometryFactory org_geos_factory;
+            geos::geom::Coordinate coord(0,0);
+            point = org_geos_factory.createPoint(coord);
+            error_tree.insert(point->getEnvelopeInternal(), 0);
         }
     }
 
