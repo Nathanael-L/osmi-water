@@ -352,18 +352,6 @@ class DataStorage {
         }
     }
 
-    const char *get_waterway_type(const char *input) {
-        if (!input) {
-            return nullptr;
-        }
-        if ((strcmp(input,"river"))&&(strcmp(input,"stream"))&&(strcmp(input,"drain"))&&(strcmp(input,"brook"))
-                &&(strcmp(input,"canal"))&&(strcmp(input,"ditch"))&&(strcmp(input,"riverbank"))) {
-            return strdup("other\0");
-        } else {
-            return strdup(input);
-        }
-    }
-
     const string get_timestamp(osmium::Timestamp timestamp) {
         string time_str = timestamp.to_iso();
         time_str.replace(10, 1, " ");
@@ -496,7 +484,7 @@ public:
     }
 
     void insert_relation_feature(OGRGeometry *geom, const osmium::Relation &relation, bool contains_nowaterway) {
-        const char *type = TagCheck::get_waterway_type(relation);
+        const char *type = TagCheck::get_way_type(relation);
         const char *name = TagCheck::get_name(relation);
 
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_relations->GetLayerDefn());
@@ -505,7 +493,7 @@ public:
         }
 
         feature->SetField("id", static_cast<int>(relation.id()));
-        feature->SetField("type", get_waterway_type(type));
+        feature->SetField("type", type);
         feature->SetField("name", name);
         feature->SetField("lastchange", get_timestamp(relation.timestamp()).c_str());
         if (contains_nowaterway)
@@ -519,7 +507,7 @@ public:
     }
 
     void insert_way_feature(OGRGeometry *geom, const osmium::Way &way, osmium::object_id_type rel_id) {
-        const char *type = TagCheck::get_waterway_type(way);
+        const char *type = TagCheck::get_way_type(way);
         const char *name = TagCheck::get_name(way);
         const char *width = TagCheck::get_width(way);
         const char *construction = TagCheck::get_construction(way);

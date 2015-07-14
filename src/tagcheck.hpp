@@ -41,10 +41,6 @@ public:
         if ((waterway) && (!strcmp(waterway, "riverbank"))) {
             return false;
         }
-        const char *natural = osm_object.get_value_by_key("natural");
-        if ((natural) && (!strcmp(natural, "coastline"))) {
-            return false;
-        }
         if (is_relation) {
             if ((type) && (!strcmp(type, "waterway"))) {
                 return true;
@@ -52,6 +48,12 @@ public:
         }
         if (waterway) {
             return true;
+        }
+        if (!is_relation) {
+            const char *natural = osm_object.get_value_by_key("natural");
+            if ((natural) && (!strcmp(natural, "coastline"))) {
+                return true;
+            }
         }
         return false;
     }
@@ -186,7 +188,7 @@ public:
         const char *type;
         const char *natural = area.get_value_by_key("natural");
         if ((natural) && (!strcmp(natural, "coastline"))) {
-            type = natural;
+            type = "coastline";
         } else {
             type = get_waterway_type(area.get_value_by_key("waterway"));
             //if (!type) {
@@ -200,16 +202,17 @@ public:
         return type;
     }
 
-    static const char *get_waterway_type(const osmium::OSMObject &osm_object) {
+    static const char *get_way_type(const osmium::OSMObject &osm_object) {
         const char *type;
-        const char *natural = osm_object.get_value_by_key("natural");
-        if ((natural) && (!strcmp(natural, "coastline"))) {
-            type = natural;
-        } else {
-            const char *waterway = osm_object.get_value_by_key("waterway");
-            type = get_waterway_type(waterway);
-            if (!type) type = "";
+        const char *waterway = osm_object.get_value_by_key("waterway");
+        type = get_waterway_type(waterway);
+        if (!type) {
+            const char *natural = osm_object.get_value_by_key("natural");
+            if ((natural) && (!strcmp(natural, "coastline"))) {
+                type = "coastline";
+            }
         }
+        if (!type) type = "";
         return type;
     }
 
