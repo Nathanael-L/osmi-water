@@ -1,23 +1,32 @@
+/***
+ * The WaterwayCollector is collecting the waterway relations and ways and insert them into the
+ * sqlite tables.
+ */
+
+#ifndef WATERWAY_HPP_
+
+#include "errorsum.hpp"
+#include "tagcheck.hpp"
+#include "datastorage.hpp"
+
+#define WATERWAY_HPP_
+
 typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type, osmium::Location> index_neg_type;
 typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type, osmium::Location> index_pos_type;
 typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
 typedef geos::geom::LineString linestring_type;
 
-/***
- * The WaterwayCollector is collecting the waterway relations and ways and insert them into the
- * sqlite tables.
- */
 class WaterwayCollector : public osmium::relations::Collector<WaterwayCollector, false, true, false> {
 
     typedef typename osmium::relations::Collector<WaterwayCollector, false, true, false> collector_type;
 
     //osmium::memory::Buffer m_output_buffer;
-    location_handler_type &locationhandler;
+    location_handler_type &location_handler;
 
     static constexpr size_t initial_output_buffer_size = 1024 * 1024;
     static constexpr size_t max_buffer_size_for_flush = 100 * 1024;
 
-    DataStorage *ds;
+    DataStorage &ds;
 
     OGRGeometry *geos2ogr(const geos::geom::Geometry *g)
     {
@@ -29,9 +38,9 @@ class WaterwayCollector : public osmium::relations::Collector<WaterwayCollector,
         wkbWriter.write(*g, ss);
         string wkb = ss.str();
         if (OGRGeometryFactory::createFromWkb((unsigned char *) wkb.c_str(),
-                                               NULL, &out, (int) wkb.size()) != OGRERR_NONE )
+                                               nullptr, &out, wkb.size()) != OGRERR_NONE )
         {
-            out = NULL;
+            out = nullptr;
             assert(false);
         }
         return out;
@@ -39,11 +48,10 @@ class WaterwayCollector : public osmium::relations::Collector<WaterwayCollector,
 
 public:
 
-    explicit WaterwayCollector(location_handler_type &location_handler, DataStorage *datastorage) :
-    collector_type(),
-    //m_output_buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes),
-    locationhandler(location_handler),
-    ds(datastorage) {
+    explicit WaterwayCollector(location_handler_type &location_handler, DataStorage &data_storage) :
+            collector_type(),
+            location_handler(location_handler),
+            ds(data_storage) {
     }
 
     ~WaterwayCollector() {
@@ -76,7 +84,7 @@ public:
     }
 
     bool member_is_valid(const osmium::RelationMember& member) {
-        return member.type() == osmium::item_type::way; //&&
+        return member.type() == osmium::item_type::way;
     }
 
     bool way_is_valid(const osmium::Way& way) {
@@ -105,36 +113,37 @@ public:
     }
 
     /***
-     * Iterate over node_map, where firstnodes and lastnodes
+     * Iterate over node_map, where first_nodes and last_nodes
      * are mapped with the names and categories of the connected
      * ways to detect errors.
      */
     void analyse_nodes() {
         osmium::Location location;
-        int count_fn, count_ln;
+        int count_first_node, count_last_node;
         long fid = 1;
         vector<const char*> names;
         vector<char> category_in;
         vector<char> category_out;
-        for (auto node = ds->node_map.begin(); node != ds->node_map.end(); ++node) {
+        for (auto node = ds.node_map.begin(); node != ds.node_map.end(); ++node) {
             ErrorSum *sum = new ErrorSum();
             osmium::object_id_type node_id = node->first;
+
             try {
-                location = locationhandler.get_node_location(node_id);
+                location = location_handler.get_node_location(node_id);
             } catch (...) {
                 cerr << "node without location: " << node_id << endl;
                 continue;
             }
-            count_fn = 0; count_ln = 0;
+            count_first_node = 0; count_last_node = 0;
             names.clear(); category_in.clear(); category_out.clear();
             for (auto wway : node->second) {
-                if (wway->firstnode == node_id) {
-                    count_fn++;
+                if (wway->first_node == node_id) {
+                    count_first_node++;
                     names.push_back(wway->name.c_str());
                     category_out.push_back(wway->category);
                 }
-                if (wway->lastnode == node_id) {
-                    count_ln++;
+                if (wway->last_node == node_id) {
+                    count_last_node++;
                     names.push_back(wway->name.c_str());
                     category_in.push_back(wway->category);
                 }
@@ -142,7 +151,8 @@ public:
             /***
              * direction error: Nodes where every connected way flows in or out.
              */
-            if ((abs(count_fn-count_ln) > 1) && ((count_fn == 0) || (count_ln == 0))) {
+            if ((abs(count_first_node - count_last_node) > 1) 
+                    && ((count_first_node == 0) || (count_last_node == 0))) {
                 sum->set_direction_error();
             }
             /***
@@ -197,10 +207,10 @@ public:
              * nodes.
              */
             if (sum->is_normal()) {
-                ds->insert_node_feature(location, node_id, sum);
+                ds.insert_node_feature(location, node_id, sum);
                 delete sum;
             } else {
-                ds->error_map[node->first] = sum;
+                ds.error_map[node->first] = sum;
             }
             fid++;
         }
@@ -215,7 +225,7 @@ public:
         const osmium::object_id_type rel_id = relation.id();
         osmium::geom::GEOSFactory<> geos_factory;
         vector<geos::geom::Geometry *> *linestrings = new vector<geos::geom::Geometry *>();
-        OGRGeometry *ogr_multilinestring = NULL;
+        OGRGeometry *ogr_multilinestring = nullptr;
         OGRSpatialReference srs;
         srs.SetWellKnownGeogCS("WGS84");
         string wkttmp;
@@ -227,7 +237,7 @@ public:
         for (auto& member : relation.members()) {
             if (member_is_valid(member)) {
                 const osmium::Way& way = way_from(member);
-                linestring_type *linestr = NULL;
+                linestring_type *linestr = nullptr;
                 try {
                     linestr = geos_factory.create_linestring(way, osmium::geom::use_nodes::unique,
                             osmium::geom::direction::forward).release();
@@ -246,11 +256,11 @@ public:
                 if (!way.tags().get_value_by_key("waterway"))
                     contains_nowaterway_ways = true;
 
-                OGRGeometry *ogr_linestring = NULL;
+                OGRGeometry *ogr_linestring = nullptr;
                 ogr_linestring = geos2ogr(linestr);
 
                 try {
-                    ds->insert_way_feature(ogr_linestring, way, rel_id);
+                    ds.insert_way_feature(ogr_linestring, way, rel_id);
                 } catch (osmium::geometry_error&) {
                     cerr << "Inserting to table failed for way: " << way.id() << endl;
                 } catch (...) {
@@ -268,7 +278,7 @@ public:
             return;
         }
         const geos::geom::GeometryFactory geom_factory = geos::geom::GeometryFactory();
-        geos::geom::GeometryCollection *geom_collection = NULL;
+        geos::geom::GeometryCollection *geom_collection = nullptr;
         try {
             geom_collection = geom_factory.createGeometryCollection(linestrings);
         } catch (...) {
@@ -276,7 +286,7 @@ public:
             delete linestrings;
             return;
         }
-        geos::geom::Geometry *geos_geom = NULL;
+        geos::geom::Geometry *geos_geom = nullptr;
         try {
             geos_geom = geom_collection->Union().release();
         } catch (...) {
@@ -295,7 +305,7 @@ public:
             }
         }
         try {
-            ds->insert_relation_feature(ogr_multilinestring, relation, contains_nowaterway_ways);
+            ds.insert_relation_feature(ogr_multilinestring, relation, contains_nowaterway_ways);
         } catch (osmium::geometry_error&) {
             OGRGeometryFactory::destroyGeometry(ogr_multilinestring);
             cerr << "Inserting to table failed for relation: " << relation.id() << endl;
@@ -315,7 +325,7 @@ public:
     void way_not_in_any_relation(const osmium::Way& way) {
         if (way_is_valid(way)) {
             osmium::geom::OGRFactory<> ogr_factory;
-            OGRLineString *linestring = NULL;
+            OGRLineString *linestring = nullptr;
             try {
                 linestring = ogr_factory.create_linestring(way,osmium::geom::use_nodes::unique,osmium::geom::direction::forward).release();
             } catch (osmium::geometry_error) {
@@ -324,7 +334,7 @@ public:
                  */
                 ErrorSum *sum = new ErrorSum();
                 sum->set_way_error();
-                ds->insert_node_feature(way.nodes().begin()->location(), way.nodes().begin()->ref(), sum);
+                ds.insert_node_feature(way.nodes().begin()->location(), way.nodes().begin()->ref(), sum);
                 delete sum;
                 return;
             } catch (...) {
@@ -334,7 +344,7 @@ public:
             }
 
             try {
-                ds->insert_way_feature(linestring, way, 0);
+                ds.insert_way_feature(linestring, way, 0);
             } catch (osmium::geometry_error&) {
                 cerr << "Inserting to table failed for way: " << way.id() << endl;
             } catch (...) {
@@ -345,3 +355,5 @@ public:
         }
     }
 };
+
+#endif /* WATERWAY_HPP_ */

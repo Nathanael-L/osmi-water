@@ -1,3 +1,10 @@
+/***
+ * Stores all important Data over the runtime and handle the database.
+ */
+
+#ifndef DATASTORAGE_HPP_
+#define DATASTORAGE_HPP_
+
 #include <geos/index/strtree/STRtree.h>
 #include <geos/index/ItemVisitor.h>
 using namespace std;
@@ -6,9 +13,6 @@ typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type, osmium::Locat
 typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type, osmium::Location> index_pos_type;
 typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
 
-/***
- * Stores all important Data over the runtime and handle the database.
- */
 class DataStorage {
     OGRDataSource* m_data_source;
     OGRLayer* m_layer_polygons;
@@ -29,15 +33,15 @@ class DataStorage {
      *  >> ignore canals, because can differ in floating direction and size
      */
     struct WaterWay {
-        osmium::object_id_type firstnode;
-        osmium::object_id_type lastnode;
+        osmium::object_id_type first_node;
+        osmium::object_id_type last_node;
         string name;
         char category;
 
-        WaterWay(osmium::object_id_type first_node, osmium::object_id_type last_node, const char *name_, const char *type) {
-            firstnode = first_node;
-            lastnode = last_node;
-            name = name_;
+        WaterWay(osmium::object_id_type first_node, osmium::object_id_type last_node, const char *name, const char *type) {
+            this->first_node = first_node;
+            this->last_node = last_node;
+            this->name = name;
             if ((!strcmp(type,"drain"))||(!strcmp(type,"brook"))||(!strcmp(type,"ditch"))) {
                 category = 'A';
             } else if (!strcmp(type,"stream")) {
@@ -50,10 +54,10 @@ class DataStorage {
         }
     };
 
-    vector<WaterWay*> WaterWays;
+    vector<WaterWay*> waterways;
 
     void init_db() {
-CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
+        CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
         OGRRegisterAll();
 
         OGRSFDriver* driver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName("SQLite");
@@ -214,16 +218,16 @@ CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
             exit(1);
         }
 
-        OGRFieldDefn layer_ways_field_firstnode("firstnode", OFTString);
-        layer_ways_field_firstnode.SetWidth(11);
-        if (m_layer_ways->CreateField(&layer_ways_field_firstnode) != OGRERR_NONE) {
+        OGRFieldDefn layer_ways_field_first_node("firstnode", OFTString);
+        layer_ways_field_first_node.SetWidth(11);
+        if (m_layer_ways->CreateField(&layer_ways_field_first_node) != OGRERR_NONE) {
             cerr << "Creating firstnode field in table ways failed.\n";
             exit(1);
         }
 
-        OGRFieldDefn layer_ways_field_lastnode("lastnode", OFTString);
-        layer_ways_field_lastnode.SetWidth(11);
-        if (m_layer_ways->CreateField(&layer_ways_field_lastnode) != OGRERR_NONE) {
+        OGRFieldDefn layer_ways_field_last_node("lastnode", OFTString);
+        layer_ways_field_last_node.SetWidth(11);
+        if (m_layer_ways->CreateField(&layer_ways_field_last_node) != OGRERR_NONE) {
             cerr << "Creating lastnode field in table ways failed.\n";
             exit(1);
         }
@@ -361,10 +365,10 @@ CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
     }
 
     const string get_timestamp(osmium::Timestamp timestamp) {
-        string output = timestamp.to_iso();
-        output.replace(10, 1, " ");
-        output.replace(19, 1, "");
-        return output;
+        string time_str = timestamp.to_iso();
+        time_str.replace(10, 1, " ");
+        time_str.replace(19, 1, "");
+        return time_str;
     }
 
     /***
@@ -419,7 +423,7 @@ CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
 
 public:
     /***
-     * node_map: Contains all firstnodes and lastnodes of found waterways with the
+     * node_map: Contains all first_nodes and last_nodes of found waterways with the
      * names and categories of the connected ways.
      * error_map: Contains ids of the potential error nodes (or mouths) to be checked
      * in pass 3.
@@ -445,7 +449,7 @@ public:
 
         OGRDataSource::DestroyDataSource(m_data_source);
         OGRCleanupAll();
-        for (auto wway : WaterWays) {
+        for (auto wway : waterways) {
             delete wway;
         }
     }
@@ -547,11 +551,11 @@ public:
         float w = 0;
         width_err = get_width(width,w);
 
-        char firstnode_chr[13], lastnode_chr[13];
-        osmium::object_id_type firstnode = way.nodes().cbegin()->ref();
-        osmium::object_id_type lastnode = way.nodes().crbegin()->ref();
-        sprintf(firstnode_chr, "%ld", firstnode);
-        sprintf(lastnode_chr, "%ld", lastnode);
+        char first_node_chr[13], last_node_chr[13];
+        osmium::object_id_type first_node = way.nodes().cbegin()->ref();
+        osmium::object_id_type last_node = way.nodes().crbegin()->ref();
+        sprintf(first_node_chr, "%ld", first_node);
+        sprintf(last_node_chr, "%ld", last_node);
 
         const char *construction;
         if (way.get_value_by_key("bridge")) {
@@ -562,10 +566,10 @@ public:
             construction = "";
         }
 
-        WaterWay *wway = new WaterWay(firstnode, lastnode, name, type);
-        WaterWays.push_back(wway);
-        node_map[firstnode].push_back(wway);
-        node_map[lastnode].push_back(wway);
+        WaterWay *wway = new WaterWay(first_node, last_node, name, type);
+        waterways.push_back(wway);
+        node_map[first_node].push_back(wway);
+        node_map[last_node].push_back(wway);
 
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_ways->GetLayerDefn());
         if (feature->SetGeometry(geom) != OGRERR_NONE) {
@@ -574,8 +578,8 @@ public:
         feature->SetField("id", static_cast<int>(way.id()));
         feature->SetField("type", type);
         feature->SetField("name", name);
-        feature->SetField("firstnode", firstnode_chr);
-        feature->SetField("lastnode", lastnode_chr);
+        feature->SetField("firstnode", first_node_chr);
+        feature->SetField("lastnode", last_node_chr);
         feature->SetField("relation", static_cast<int>(rel_id));
         feature->SetField("lastchange", get_timestamp(way.timestamp()).c_str());
         feature->SetField("construction", construction);
@@ -592,7 +596,7 @@ public:
     void insert_node_feature(osmium::Location location, osmium::object_id_type node_id, ErrorSum *sum) {
         osmium::geom::OGRFactory<> ogr_factory;
         OGRFeature *feature = OGRFeature::CreateFeature(m_layer_nodes->GetLayerDefn());
-        OGRPoint *point = NULL;
+        OGRPoint *point = nullptr;
         try {
              point = ogr_factory.create_point(location).release();
         } catch (osmium::geometry_error) {
@@ -656,12 +660,12 @@ public:
      * Insert the error nodes remaining after first indicate false positives in pass 3 into the error_tree.
      * FIXME: memory for point isn't free'd
      */
-    void init_tree(location_handler_type &locationhandler) {
+    void init_tree(location_handler_type &location_handler) {
         osmium::geom::GEOSFactory<> geos_factory;
         geos::geom::Point *point;
         for (auto& node : error_map) {
             if (!(node.second->is_rivermouth()) && (!(node.second->is_outflow()))) {
-                point = geos_factory.create_point(locationhandler.get_node_location(node.first)).release();
+                point = geos_factory.create_point(location_handler.get_node_location(node.first)).release();
                 error_tree.insert(point->getEnvelopeInternal(), (osmium::object_id_type *) &(node.first));
             }
         }
@@ -670,14 +674,16 @@ public:
     /***
      * Insert the error nodes into the nodes table.
      */
-    void insert_error_nodes(location_handler_type &locationhandler) {
+    void insert_error_nodes(location_handler_type &location_handler) {
         osmium::Location location;
         for (auto node : error_map) {
             node.second->switch_poss();
             osmium::object_id_type node_id = node.first;
-            location = locationhandler.get_node_location(node_id);
+            location = location_handler.get_node_location(node_id);
             insert_node_feature(location,node_id,node.second);
             delete node.second;
         }
     }
 };
+
+#endif /* DATASTORAGE_HPP_ */

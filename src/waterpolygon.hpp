@@ -1,11 +1,15 @@
+/***
+ * The WaterpolygonCollector is just collecting the areas and call them back to the AreaHandler.
+ */
+
+#ifndef WATERPOLYGON_HPP_
+#define WATERPOLYGON_HPP_
+
 #include <osmium/area/multipolygon_collector.hpp>
 #include <osmium/area/assembler.hpp>
 
 using namespace std;
 
-/***
- * The WaterpolygonCollector is just collecting the areas and call them back to the AreaHandler.
- */
 template <class TAssembler>
 class WaterpolygonCollector : public osmium::relations::Collector<WaterpolygonCollector<TAssembler>, false, true, false> {
 
@@ -18,8 +22,6 @@ class WaterpolygonCollector : public osmium::relations::Collector<WaterpolygonCo
 
     static constexpr size_t initial_output_buffer_size = 1024 * 1024;
     static constexpr size_t max_buffer_size_for_flush = 100 * 1024;
-
-    DataStorage *ds;
 
     void flush_output_buffer() {
         if (this->callback()) {
@@ -37,11 +39,10 @@ class WaterpolygonCollector : public osmium::relations::Collector<WaterpolygonCo
 
 public:
 
-    explicit WaterpolygonCollector(const assembler_config_type& assembler_config, DataStorage *datastorage) :
+    explicit WaterpolygonCollector(const assembler_config_type& assembler_config) :
         collector_type(),
         m_assembler_config(assembler_config),
-        m_output_buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes),
-        ds(datastorage){
+        m_output_buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes) {
     }
 
     bool keep_relation(const osmium::Relation& relation) {
@@ -71,16 +72,9 @@ public:
     }
 
     bool way_is_valid(const osmium::Way& way) {
-        const char* type = way.tags().get_value_by_key("type");
         const char* natural = way.tags().get_value_by_key("natural");
         const char* landuse = way.tags().get_value_by_key("landuse");
 
-        /*if (!type) {
-            return false;
-        }
-        if ((strcmp(type, "multipolygon")) && (strcmp(type, "boundary"))) {
-            return false;
-        }*/
         if ((natural) && (!strcmp(natural, "water"))) {
             return true;
         }
@@ -166,4 +160,4 @@ public:
 
 };
 
-
+#endif /* WATERPOLYGON_HPP_ */

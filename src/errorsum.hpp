@@ -1,11 +1,15 @@
-using namespace std;
-
-#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
-
 /***
  * ErrorSum manages the error types of a node. This is necessary, because
  * the status of a node changes over the runtime.
  */
+
+#ifndef ERRORSUM_HPP_
+#define ERRORSUM_HPP_
+
+using namespace std;
+
+#define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
+
 class ErrorSum {
 
     short error_sum;
@@ -120,6 +124,10 @@ public:
         return (CHECK_BIT(error_sum,11));
     }
 
+    //DEBUG
+    short errsum() {
+        return error_sum;
+    }
     /***
      * switch the possible mouths to dedicated spring errors and end errors.
      */
@@ -135,3 +143,5 @@ public:
         }
     }
 };
+
+#endif /* ERRORSUM_HPP_ */
