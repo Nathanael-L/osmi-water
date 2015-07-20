@@ -1,24 +1,29 @@
 /***
- * The WaterpolygonCollector is just collecting the areas and call them back to the AreaHandler.
+ * The WaterpolygonCollector is just collecting the areas and call them back
+ * to the AreaHandler.
  */
 
 #ifndef WATERPOLYGON_HPP_
-#define WATERPOLYGON_HPP_
 
 #include <osmium/area/multipolygon_collector.hpp>
 #include <osmium/area/assembler.hpp>
+
+#define WATERPOLYGON_HPP_
 
 using namespace std;
 
 template <class TAssembler>
 class WaterpolygonCollector :  
-            public osmium::relations::Collector<WaterpolygonCollector<TAssembler>,
-                                                false, true, false> {
+        public osmium::relations::Collector<WaterpolygonCollector<TAssembler>,
+                                            false, true, false> {
 
-    typedef typename osmium::relations::Collector<WaterpolygonCollector<TAssembler>,
-                                                  false, true, false> collector_type;
-
+    typedef typename osmium::relations::Collector<
+                WaterpolygonCollector<TAssembler>,
+                false, true, false>
+            collector_type;
+            
     typedef typename TAssembler::config_type assembler_config_type;
+
     const assembler_config_type m_assembler_config;
 
     osmium::memory::Buffer m_output_buffer;
@@ -42,10 +47,12 @@ class WaterpolygonCollector :
 
 public:
 
-    explicit WaterpolygonCollector(const assembler_config_type& assembler_config) :
+    explicit WaterpolygonCollector(const assembler_config_type
+                                   &assembler_config) :
         collector_type(),
         m_assembler_config(assembler_config),
-        m_output_buffer(initial_output_buffer_size, osmium::memory::Buffer::auto_grow::yes) {
+        m_output_buffer(initial_output_buffer_size,
+                        osmium::memory::Buffer::auto_grow::yes) {
     }
 
     bool keep_relation(const osmium::Relation& relation) {
@@ -69,12 +76,14 @@ public:
         std::vector<size_t> offsets;
         for (const auto& member : relation.members()) {
             if (member.ref() != 0) {
-                offsets.push_back(this->get_offset(member.type(), member.ref()));
+                offsets.push_back(this->get_offset(member.type(),
+                                  member.ref()));
             }
         }
         try {
             TAssembler assembler(m_assembler_config);
-            assembler(relation, offsets, this->members_buffer(), m_output_buffer);
+            assembler(relation, offsets, this->members_buffer(),
+                      m_output_buffer);
             possibly_flush_output_buffer();
         } catch (osmium::invalid_location&) {
             // XXX ignore
@@ -89,8 +98,10 @@ public:
 
                 // if this is the last time this object was needed
                 // then mark it as removed
-                if (osmium::relations::count_not_removed(range.first, range.second) == 1) {
-                    this->get_member(range.first->buffer_offset()).set_removed(true);
+                if (osmium::relations::count_not_removed(range.first,
+                                                         range.second) == 1) {
+                    this->get_member(range.first->buffer_offset())
+                        .set_removed(true);
                 }
 
                 for (auto it = range.first; it != range.second; ++it) {

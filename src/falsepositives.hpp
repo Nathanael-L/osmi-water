@@ -1,5 +1,6 @@
 /***
- * IndicateFalsePositives checks all possible node errors found in pass 2 through analyse_nodes().
+ * IndicateFalsePositives checks all possible node errors found in pass 2
+ * through analyse_nodes().
  *   - iterates in pass 3 over all relevant ways
  *   - iterates in pass 4 over all areas
  */
@@ -14,16 +15,19 @@
 #include <osmium/osm/location.hpp>
 #include <osmium/handler/node_locations_for_ways.hpp>
 #include <geos/index/strtree/STRtree.h>
+#include <geos/geom/prep/PreparedPolygon.h>
 
 #define FALSEPOSITIVES_HPP_
 
-typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
+typedef osmium::handler::NodeLocationsForWays<index_pos_type,
+                                              index_neg_type>
+        location_handler_type;
+typedef geos::geom::prep::PreparedPolygon prepared_polygon_type;
 
 class IndicateFalsePositives: public osmium::handler::Handler {
 
     DataStorage &ds;
     location_handler_type &location_handler;
-    bool analyse_ways = true;
     osmium::geom::GEOSFactory<> geos_factory;
 
     /***
@@ -33,11 +37,7 @@ class IndicateFalsePositives: public osmium::handler::Handler {
      *        tag but NOT any waterway={river,drain,stream,canal,ditch}
      */
     bool is_valid(const osmium::OSMObject& osm_object) {
-        if (!analyse_ways) {
-            return TagCheck::is_area_to_analyse(osm_object);
-        } else {
-            return TagCheck::is_way_to_analyse(osm_object);
-        }
+        return TagCheck::is_way_to_analyse(osm_object);
     }
 
     bool check_all_nodes(const osmium::Way& way) {
@@ -62,134 +62,23 @@ class IndicateFalsePositives: public osmium::handler::Handler {
         auto error_node = ds.error_map.find(node_id);
         if (error_node != ds.error_map.end()) {
             ErrorSum *sum = error_node->second;
-            if (sum->is_poss_rivermouth()) {
-                sum->set_rivermouth();
-            } else if (sum->is_poss_outflow()) {
-                sum->set_outflow();
-            } else {
-                sum->set_to_normal();
-                ds.insert_node_feature(
-                        location_handler.get_node_location(node_id), node_id,
-                        sum);
-                ds.error_map.erase(node_id);
-                delete sum;
-            }
+            delete_error_node(node_id, sum);
         }
     }
 
-    /***
-     * Compare given area with the locations in the error_tree. Traced nodes are either flagged as mouth
-     * or deleted from the map and inserted as normal node.
-     */
-
-    geos::geom::MultiPolygon *create_multipolygon(const osmium::Area& area) {
-        geos::geom::MultiPolygon *multipolygon = nullptr;
-        try {
-            multipolygon = geos_factory.create_multipolygon(area).release();
-        } catch (osmium::geometry_error) {
-            errormsg(area);
-            return nullptr;
-        } catch (...) {
-            errormsg(area);
-            cerr << "Unexpected error" << endl;
-            return nullptr;
-        }
-        return multipolygon;
-    } 
-
-    bool polygon_contains_result(void *result, const osmium::Area &area,
-                                 geos::geom::MultiPolygon *multipolygon,
-                                 osmium::object_id_type &node_id) {
-        try {
-            node_id = *(static_cast<osmium::object_id_type*>(result));
-        } catch (...) {
-            return false;
-        }
-        osmium::Location location;
-        const geos::geom::Point *point = nullptr;
-        try {
-            location = location_handler.get_node_location(node_id);
-            point = geos_factory.create_point(location).release();
-        } catch (osmium::geometry_error) {
-            errormsg(area);
-            return false;
-        } catch (...) {
-            errormsg(area);
-            cerr << "Unexpected error" << endl;
-            return false;
-        }
-        { //Benchmark
-            t_initgeos.stop();
-            t_geoscontains.start();
-        }
-        try {
-            bool contains = multipolygon->contains(point);
-            delete point;
-            return contains;
-        } catch (...) {
-            errormsg(area);
-            cerr << "and point: " << point->getX() << ","
-                    << point->getY() << endl;
-            cerr << "GEOS contains error." << endl;
-            delete point;
-            return false;
-        }
-        { //Benchmark
-            t_geoscontains.stop();
-        }
-    }
-   
-    void delete_error(osmium::object_id_type node_id) {
-        auto error_node = ds.error_map.find(node_id);
-        if (error_node != ds.error_map.end()) {
-            ErrorSum *sum = error_node->second;
-            if (sum->is_poss_rivermouth()) {
-                sum->set_rivermouth();
-            } else if (sum->is_poss_outflow()) {
-                sum->set_outflow();
-            } else {
-                if (!(sum->is_normal())) {
-                    sum->set_to_normal();
-                    osmium::Location location;
-                    location = location_handler.get_node_location(node_id);
-                    ds.insert_node_feature(location, node_id, sum);
-                }
-            }
+    void delete_error_node(osmium::object_id_type node_id, ErrorSum *sum) {
+        if (sum->is_poss_rivermouth()) {
+            sum->set_rivermouth();
+        } else if (sum->is_poss_outflow()) {
+            sum->set_outflow();
         } else {
-            cerr
-                    << "Enexpected error: error_tree contains node, "
-                    << "but not error_map." << endl;
-            exit(1);
+            sum->set_to_normal();
+            ds.insert_node_feature(
+                    location_handler.get_node_location(node_id),
+                    node_id, sum);
+            ds.error_map.erase(node_id);
+            delete sum;
         }
-    }
-
-    void check_area(const osmium::Area& area) {
-        geos::geom::MultiPolygon *multipolygon = nullptr;
-        multipolygon = create_multipolygon(area);
-        if (!multipolygon) return;
-        { //Benchmark
-            t_treequery.start();
-        }
-        vector<void *> results;
-        ds.error_tree.query(multipolygon->getEnvelopeInternal(), results);
-        { //Benchmark
-            t_treequery.stop();
-        }
-        if (results.size()) {
-            for (auto result : results) {
-                { //Benchmark
-                    t_initgeos.start();
-                }
-                osmium::object_id_type node_id;
-                bool contains = polygon_contains_result(result, area,
-                                                        multipolygon, node_id);
-                if (!contains) {
-                    continue;
-                }
-                delete_error(node_id);
-            }
-        }
-        delete multipolygon;
     }
 
 public:
@@ -199,16 +88,13 @@ public:
             ds(data_storage), location_handler(location_handler) {
     }
 
-    void analyse_polygons() {
-        analyse_ways = false;
-    }
-
     /***
-     * Iterate through all nodes of waterways in pass 3 if way is coastline or riverbank.
-     * Otherwise iterate just through the nodes between firstnode and lastnode.
+     * Iterate through all nodes of waterways in pass 3 if way is coastline
+     * or riverbank. Otherwise iterate just through the nodes between
+     * firstnode and lastnode.
      */
     void way(const osmium::Way& way) {
-        if (is_valid(way) && analyse_ways) {
+        if (is_valid(way)) {
             if (check_all_nodes(way)) {
                 for (auto node : way.nodes()) {
                     check_node(node);
@@ -225,11 +111,47 @@ public:
     }
 
     /***
-     * Check all waterpolygons in pass 5.
+     * Check all waterpolygons in pass 4.
      */
-    void area(const osmium::Area& area) {
-        if (is_valid(area) && !analyse_ways) {
-            check_area(area);
+    void check_area() {
+        for (auto node : ds.error_map) {
+            { // Benchmark
+                t_treequery.start();
+            }
+            osmium::Location location;
+            osmium::object_id_type node_id = node.first;
+            const geos::geom::Point *point = nullptr;
+            try {
+                location = location_handler.get_node_location(node_id);
+                point = geos_factory.create_point(location).release();
+            } catch (...) {
+                cerr << "Error at node: " << node_id
+                     << " - not able to create point of location.";
+                continue;
+            }
+            vector<void *> results;
+            ds.polygon_tree.query(point->getEnvelopeInternal(), results);
+            { // Benchmark
+                t_treequery.stop();
+            }
+            if (results.size()) {
+                { // Benchmark
+                    t_geoscontains.start();
+                }
+                for (auto result : results) {
+                    prepared_polygon_type *geos_polygon;
+                    geos_polygon = static_cast<prepared_polygon_type*> (result);
+                    if (geos_polygon->contains(point)) {
+                        ErrorSum *sum = node.second;
+                        delete_error_node(node_id, sum);
+                        break;
+                    }
+                }
+                { // Benchmark
+                    t_geoscontains.stop();
+                }
+            }
+            delete point;
         }
     }
 };

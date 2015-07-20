@@ -35,12 +35,9 @@
  */
 #include "timer.h"
 timer t_total_pass4;
+timer t_inittree;
 timer t_treequery;
-timer t_initgeos;
 timer t_geoscontains;
-timer t_ifgeoscontains;
-timer t_mapfind;
-timer t_errorlogic;
 
 #include "errorsum.hpp"
 #include "waterway.hpp"
@@ -55,8 +52,10 @@ using namespace std;
 typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type,
         osmium::Location> index_neg_type;
 typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type,
-        osmium::Location> index_pos_type;
-typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type> location_handler_type;
+                                           osmium::Location>
+        index_pos_type;
+typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type>
+        location_handler_type;
 typedef geos::geom::LineString linestring_type;
 
 /***
@@ -64,12 +63,9 @@ typedef geos::geom::LineString linestring_type;
  */
 void print_pass4_time() {
     cout << "Pass4 (total):" << t_total_pass4 << endl;
+    cout << "   init tree:" << t_inittree << endl;
     cout << "   tree querry:" << t_treequery << endl;
-    cout << "   init geos location:" << t_initgeos << endl;
     cout << "   geos conatins:" << t_geoscontains << endl;
-    cout << "   if geos contains:" << t_ifgeoscontains << endl;
-    cout << "      map find:" << t_mapfind << endl;
-    cout << "      error logic:" << t_errorlogic << endl;
 }
 
 void print_help() {
@@ -153,18 +149,14 @@ int main(int argc, char* argv[]) {
      */
     cerr << "Pass 2...\n";
     osmium::io::Reader reader2(input_filename);
-    osmium::apply(reader2, location_handler, waterway_collector.handler());/*
-     [&dumphandler](const osmium::memory::Buffer& area_buffer) {
-     osmium::apply(area_buffer, dumphandler);
-     }));*/
-
+    osmium::apply(reader2, location_handler, waterway_collector.handler());
     waterway_collector.analyse_nodes();
     reader2.close();
     cerr << "Pass 2 done\n";
 
     /***
-     * Pass 3: Indicate false positives by comparing the error nodes with the way nodes
-     * between the firstnode and the lastnode.
+     * Pass 3: Indicate false positives by comparing the error nodes with the
+     * way nodes between the firstnode and the lastnode.
      */
     cerr << "Pass 3...\n";
     osmium::io::Reader reader3(input_filename, osmium::osm_entity_bits::way);
@@ -176,22 +168,21 @@ int main(int argc, char* argv[]) {
     /***
      * Pass 4: Collect all waterpolygons in and not in any relation.
      * Insert features to polygons table.
-     * Indicate false positives by comparing the geometry of the error nodes and
-     * the polygons.
+     * Indicate false positives by comparing the geometry of the error nodes
+     * and the polygons.
      */
     cerr << "Pass 4...\n";
     t_total_pass4.start();
     osmium::io::Reader reader4(input_filename,
             osmium::osm_entity_bits::way | osmium::osm_entity_bits::relation);
-    AreaHandler areahandler(ds);
-    ds.init_tree(location_handler);
-    indicate_fp.analyse_polygons();
-    osmium::apply(reader4, location_handler,
-            waterpolygon_collector.handler(
-                    [&areahandler, &indicate_fp](const osmium::memory::Buffer& area_buffer) {
-                        osmium::apply(area_buffer, areahandler, indicate_fp);
-                    }));
+    AreaHandler area_handler(ds);
+    osmium::apply(reader4, location_handler, waterpolygon_collector.handler(
+            [&area_handler, &indicate_fp]
+            (const osmium::memory::Buffer &area_buffer) {
+                osmium::apply(area_buffer, area_handler);
+            }));
     reader4.close();
+    indicate_fp.check_area();
     t_total_pass4.stop();
     print_pass4_time();
     cerr << "Pass 4 done\n";
@@ -205,7 +196,8 @@ int main(int argc, char* argv[]) {
             waterway_collector.get_incomplete_relations();
     if (!incomplete_relations.empty()) {
         cerr
-                << "Warning! Some member ways missing for these multipolygon relations:";
+                << "Warning! Some member ways missing for these multipolygon"
+                << " relations:";
         for (const auto* relation : incomplete_relations) {
             cerr << " " << relation->id();
         }

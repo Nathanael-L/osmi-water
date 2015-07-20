@@ -32,7 +32,8 @@ class TagCheck {
 
 public:
 
-    static bool is_waterway(const osmium::OSMObject &osm_object, bool is_relation) {
+    static bool is_waterway(const osmium::OSMObject &osm_object,
+                            bool is_relation) {
         const char* type = osm_object.get_value_by_key("type");
         if ((type) && (!strcmp(type, "multipolygon"))) {
             return false;
@@ -58,7 +59,8 @@ public:
         return false;
     }
 
-    static bool is_waterpolygon(const osmium::OSMObject &osm_object, bool is_relation) {
+    static bool is_waterpolygon(const osmium::OSMObject &osm_object,
+                                bool is_relation) {
         if (is_relation) {
             const char* type = osm_object.tags().get_value_by_key("type");
             if (!type) {
@@ -117,18 +119,14 @@ public:
     }
 
     static bool is_area_to_analyse(const osmium::OSMObject &osm_object) {
-        const char *landuse = osm_object.get_value_by_key("landuse");
-        if ((landuse) && 
-                ((!strcmp(landuse, "reservoir")) || (!strcmp(landuse, "basin")))) {
-            return true;
-        }
         const char *waterway = osm_object.get_value_by_key("waterway");
         if ((waterway)
                 && ((!strcmp(waterway, "river"))
                  || (!strcmp(waterway, "drain"))
                  || (!strcmp(waterway, "stream"))
                  || (!strcmp(waterway, "canal"))
-                 || (!strcmp(waterway, "ditch")))) {
+                 || (!strcmp(waterway, "ditch"))
+                 || (!strcmp(waterway, "riverbank")))) {
             return false;
         }
         const char *water = osm_object.get_value_by_key("water");
@@ -137,11 +135,11 @@ public:
                  || (!strcmp(water, "drain"))
                  || (!strcmp(water, "stream"))
                  || (!strcmp(water, "canal"))
-                 || (!strcmp(water, "ditch")))) {
+                 || (!strcmp(water, "ditch"))
+                 || (!strcmp(water, "riverbank")))) {
             return false;
         }
-        
-        return is_way_to_analyse(osm_object);
+        return true;
     }
 
     static bool is_riverbank_or_coastline(const osmium::OSMObject &osm_object) {
@@ -162,7 +160,8 @@ public:
             return true;
         }
         const char *landuse = osm_object.get_value_by_key("landuse");
-        if ((landuse) && ((!strcmp(landuse, "reservoir")) || (!strcmp(landuse, "basin")))){
+        if ((landuse) && ((!strcmp(landuse, "reservoir")) ||
+                          (!strcmp(landuse, "basin")))){
             return true;
         }
         if (osm_object.get_value_by_key("waterway")) {
