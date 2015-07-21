@@ -24,7 +24,7 @@ class AreaHandler: public osmium::handler::Handler {
         return TagCheck::is_water_area(area);
     }
 
-    void errormsg(const osmium::Area &area) {
+    void error_message(const osmium::Area &area) {
         cerr << "AreaHandler: Error at ";
         if (area.from_way())
             cerr << "way: ";
@@ -36,11 +36,24 @@ class AreaHandler: public osmium::handler::Handler {
     void insert_in_polygon_tree(const osmium::Area &area) {
         osmium::geom::GEOSFactory<> geos_factory;
         geos::geom::MultiPolygon *geos_multipolygon;
-        geos_multipolygon = geos_factory.create_multipolygon(area).release();
+        try {
+            geos_multipolygon = geos_factory.create_multipolygon(area)
+                                            .release();
+        } catch (...) {
+            error_message(area);
+            cerr << "While init polygon_tree." << endl;
+            return;
+        }
 
         for (auto geos_polygon : *geos_multipolygon) {
             prepared_polygon_type *prepared_polygon;
-            prepared_polygon = new prepared_polygon_type(geos_polygon);
+            try {
+                prepared_polygon = new prepared_polygon_type(geos_polygon);
+            } catch (...) {
+                error_message(area);
+                cerr << "While init polygon_tree." << endl;
+                continue;
+            }
             const geos::geom::Envelope *envelope;
             envelope = geos_polygon->getEnvelopeInternal();
             ds.polygon_tree.insert(envelope, prepared_polygon);
@@ -62,10 +75,12 @@ public:
             try {
                 geom = ogr_factory.create_multipolygon(area).release();
             } catch (osmium::geometry_error) {
-                errormsg(area);
+                error_message(area);
+                return;
             } catch (...) {
-                errormsg(area);
+                error_message(area);
                 cerr << "Unexpected error" << endl;
+                return;
             }
             if (geom) {
                 ds.insert_polygon_feature(geom, area);
