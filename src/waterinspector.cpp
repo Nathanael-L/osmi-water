@@ -3,8 +3,6 @@
 #include <iterator>
 #include <vector>
 
-// usually you only need one or two of these
-//#include <osmium/index/map/dummy.hpp>
 #include <osmium/index/map/sparse_mem_array.hpp>
 
 #include <osmium/handler/node_locations_for_ways.hpp>
@@ -38,6 +36,8 @@ timer t_total_pass4;
 timer t_inittree;
 timer t_treequery;
 timer t_geoscontains;
+timer t_createpolygons;
+timer t_indicatefp;
 
 #include "errorsum.hpp"
 #include "waterway.hpp"
@@ -62,10 +62,12 @@ typedef geos::geom::LineString linestring_type;
  * Benchmark
  */
 void print_pass4_time() {
-    cout << "Pass4 (total):" << t_total_pass4 << endl;
-    cout << "   init tree:" << t_inittree << endl;
-    cout << "   tree querry:" << t_treequery << endl;
-    cout << "   geos conatins:" << t_geoscontains << endl;
+    cout << "Pass4 (total):            " << t_total_pass4 << endl;
+    cout << "Create polygons:          " << t_createpolygons << endl;
+    cout << "   init tree:             " << t_inittree << endl;
+    cout << "Indicate false positives: " << t_indicatefp << endl;
+    cout << "   tree querry:           " << t_treequery << endl;
+    cout << "   geos conatins:         " << t_geoscontains << endl;
 }
 
 void print_help() {
@@ -160,8 +162,8 @@ int main(int argc, char* argv[]) {
      */
     cerr << "Pass 3...\n";
     osmium::io::Reader reader3(input_filename, osmium::osm_entity_bits::way);
-    IndicateFalsePositives indicate_fp(ds, location_handler);
-    osmium::apply(reader3, indicate_fp);
+    IndicateFalsePositives indicate_false_positives(ds, location_handler);
+    osmium::apply(reader3, indicate_false_positives);
     reader3.close();
     cerr << "Pass 3 done\n";
 
@@ -172,19 +174,29 @@ int main(int argc, char* argv[]) {
      * and the polygons.
      */
     cerr << "Pass 4...\n";
-    t_total_pass4.start();
+    { // Benchmark
+        t_total_pass4.start();
+        t_createpolygons.start();
+    }
     osmium::io::Reader reader4(input_filename,
             osmium::osm_entity_bits::way | osmium::osm_entity_bits::relation);
     AreaHandler area_handler(ds);
     osmium::apply(reader4, location_handler, waterpolygon_collector.handler(
-            [&area_handler, &indicate_fp]
+            [&area_handler, &indicate_false_positives]
             (const osmium::memory::Buffer &area_buffer) {
                 osmium::apply(area_buffer, area_handler);
             }));
     reader4.close();
-    indicate_fp.check_area();
-    t_total_pass4.stop();
-    print_pass4_time();
+    { // Benchmark
+        t_createpolygons.stop();
+        t_indicatefp.start();
+    }
+    indicate_false_positives.check_area();
+    { // Benchmark
+        t_indicatefp.stop();
+        t_total_pass4.stop();
+        print_pass4_time();
+    }
     cerr << "Pass 4 done\n";
 
     /***
