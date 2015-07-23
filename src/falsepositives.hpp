@@ -6,6 +6,7 @@
  */
 
 #ifndef FALSEPOSITIVES_HPP_
+#define FALSEPOSITIVES_HPP_
 
 #include <iostream>
 #include <osmium/geom/geos.hpp>
@@ -17,7 +18,6 @@
 #include <geos/index/strtree/STRtree.h>
 #include <geos/geom/prep/PreparedPolygon.h>
 
-#define FALSEPOSITIVES_HPP_
 
 typedef osmium::handler::NodeLocationsForWays<index_pos_type,
                                               index_neg_type>
@@ -30,12 +30,6 @@ class IndicateFalsePositives: public osmium::handler::Handler {
     location_handler_type &location_handler;
     osmium::geom::GEOSFactory<> geos_factory;
 
-    /***
-     * Is_valid is different if ways or areas are analysed.
-     * Ways: has waterway tag or natural=water.
-     * Areas: has landuse={reservoir,basin} or natural=water or has waterway
-     *        tag but NOT any waterway={river,drain,stream,canal,ditch}
-     */
     bool is_valid(const osmium::OSMObject& osm_object) {
         return TagCheck::is_way_to_analyse(osm_object);
     }
@@ -111,7 +105,12 @@ public:
     }
 
     /***
-     * Check all waterpolygons in pass 4.
+     * Check all waterpolygons in pass 4: Iterate over error map and search
+     * the node in the polygon tree by bounding box.
+     * If found do geos contains with the polygon to make sure, the node is
+     * containing in the polygon.
+     * If the poylgon contains the error node the error is detected as a false
+     * possitive and is either a normal node or a river mouth.
      */
     void check_area() {
         for (auto node : ds.error_map) {

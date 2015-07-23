@@ -3,12 +3,12 @@
  */
 
 #ifndef DATASTORAGE_HPP_
+#define DATASTORAGE_HPP_
 
 #include <geos/index/strtree/STRtree.h>
 #include <geos/index/ItemVisitor.h>
 #include <geos/geom/prep/PreparedPolygon.h>
 
-#define DATASTORAGE_HPP_
 
 using namespace std;
 

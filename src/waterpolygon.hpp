@@ -4,11 +4,11 @@
  */
 
 #ifndef WATERPOLYGON_HPP_
+#define WATERPOLYGON_HPP_
 
 #include <osmium/area/multipolygon_collector.hpp>
 #include <osmium/area/assembler.hpp>
 
-#define WATERPOLYGON_HPP_
 
 using namespace std;
 

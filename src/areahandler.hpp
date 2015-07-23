@@ -3,6 +3,7 @@
  */
 
 #ifndef AREAHANDLER_HPP_
+#define AREAHANDLER_HPP_
 
 #include <iostream>
 #include <osmium/handler.hpp>
@@ -11,7 +12,6 @@
 #include <geos/simplify/TopologyPreservingSimplifier.h>
 #include <geos/geom/prep/PreparedPolygon.h>
 
-#define AREAHANDLER_HPP_
 
 typedef geos::geom::prep::PreparedPolygon prepared_polygon_type;
 

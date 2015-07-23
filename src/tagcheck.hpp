@@ -6,11 +6,11 @@
  */
 
 #ifndef TAGCHECK_HPP_
+#define TAGCHECK_HPP_
 
 #include <osmium/osm/tag.hpp>
 #include <osmium/tags/filter.hpp>
 
-#define TAGCHECK_HPP_
 
 using namespace std;
 
