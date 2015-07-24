@@ -92,7 +92,7 @@ public:
         const char *waterway = osm_object.get_value_by_key("waterway");
         return static_cast<bool>(waterway);
     }
-    
+
     static bool is_way_to_analyse(const osmium::OSMObject &osm_object) {
         const char *waterway = osm_object.get_value_by_key("waterway");
         if (waterway) {

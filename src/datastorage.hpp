@@ -171,11 +171,11 @@ class DataStorage {
             exit(1);
         }
 
-        OGRFieldDefn layer_relations_field_id("id", OFTInteger);
+        OGRFieldDefn layer_relations_field_id("relation_id", OFTInteger);
         layer_relations_field_id.SetWidth(12);
         if (m_layer_relations->CreateField(&layer_relations_field_id)
                 != OGRERR_NONE) {
-            cerr << "Creating id field in table realtions failed.\n";
+            cerr << "Creating relation_id field in table realtions failed.\n";
             exit(1);
         }
 
@@ -238,10 +238,10 @@ class DataStorage {
             exit(1);
         }
 
-        OGRFieldDefn layer_ways_field_id("id", OFTInteger);
+        OGRFieldDefn layer_ways_field_id("way_id", OFTInteger);
         layer_ways_field_id.SetWidth(12);
         if (m_layer_ways->CreateField(&layer_ways_field_id) != OGRERR_NONE) {
-            cerr << "Creating id field in table ways failed.\n";
+            cerr << "Creating way_id field in table ways failed.\n";
             exit(1);
         }
 
@@ -275,11 +275,11 @@ class DataStorage {
             exit(1);
         }
 
-        OGRFieldDefn layer_ways_field_relation("relation", OFTInteger);
+        OGRFieldDefn layer_ways_field_relation("relation_id", OFTInteger);
         layer_ways_field_relation.SetWidth(10);
         if (m_layer_ways->CreateField(&layer_ways_field_relation)
                 != OGRERR_NONE) {
-            cerr << "Creating relation field in table ways failed.\n";
+            cerr << "Creating relation_id field in table ways failed.\n";
             exit(1);
         }
 
@@ -337,10 +337,10 @@ class DataStorage {
             exit(1);
         }
 
-        OGRFieldDefn layer_nodes_field_id("id", OFTString);
+        OGRFieldDefn layer_nodes_field_id("node_id", OFTString);
         layer_nodes_field_id.SetWidth(12);
         if (m_layer_nodes->CreateField(&layer_nodes_field_id) != OGRERR_NONE) {
-            cerr << "Creating id field in table nodes failed.\n";
+            cerr << "Creating node_id field in table nodes failed.\n";
             exit(1);
         }
 
@@ -574,7 +574,7 @@ public:
                  << relation.id() << endl;
         }
 
-        feature->SetField("id", static_cast<int>(relation.id()));
+        feature->SetField("relation_id", static_cast<int>(relation.id()));
         feature->SetField("type", type);
         feature->SetField("name", name);
         feature->SetField("lastchange",
@@ -613,12 +613,12 @@ public:
             cerr << "Failed to create geometry feature for way: "
                  << way.id() << endl;
         }
-        feature->SetField("id", static_cast<int>(way.id()));
+        feature->SetField("way_id", static_cast<int>(way.id()));
         feature->SetField("type", type);
         feature->SetField("name", name);
         feature->SetField("firstnode", first_node_chr);
         feature->SetField("lastnode", last_node_chr);
-        feature->SetField("relation", static_cast<int>(rel_id));
+        feature->SetField("relation_id", static_cast<int>(rel_id));
         feature->SetField("lastchange", get_timestamp(way.timestamp()).c_str());
         feature->SetField("construction", construction);
         feature->SetField("width_error", (width_err) ? "true" : "false");
@@ -655,7 +655,7 @@ public:
             cerr << "Failed to create geometry feature for node: "
                  << node_id << endl;
         }
-        feature->SetField("id", id_chr);
+        feature->SetField("node_id", id_chr);
         if (sum->is_rivermouth()) feature->SetField("specific", "rivermouth");
         else feature->SetField("specific", (sum->is_outflow()) ? "outflow": "");
         feature->SetField("direction_error",
