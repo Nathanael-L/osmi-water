@@ -186,6 +186,7 @@ int main(int argc, char* argv[]) {
             (const osmium::memory::Buffer &area_buffer) {
                 osmium::apply(area_buffer, area_handler);
             }));
+    area_handler.complete_polygon_tree();
     reader4.close();
     { // Benchmark
         t_createpolygons.stop();

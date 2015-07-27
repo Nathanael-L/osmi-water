@@ -34,10 +34,10 @@ class AreaHandler: public osmium::handler::Handler {
     }
 
     void insert_in_polygon_tree(const osmium::Area &area) {
-        osmium::geom::GEOSFactory<> geos_factory;
+        osmium::geom::GEOSFactory<> osmium_geos_factory;
         geos::geom::MultiPolygon *geos_multipolygon;
         try {
-            geos_multipolygon = geos_factory.create_multipolygon(area)
+            geos_multipolygon = osmium_geos_factory.create_multipolygon(area)
                                             .release();
         } catch (...) {
             error_message(area);
@@ -57,6 +57,7 @@ class AreaHandler: public osmium::handler::Handler {
             const geos::geom::Envelope *envelope;
             envelope = geos_polygon->getEnvelopeInternal();
             ds.polygon_tree.insert(envelope, prepared_polygon);
+            count_polygons++;
             ds.prepared_polygon_set.insert(prepared_polygon); 
         }
         ds.multipolygon_set.insert(geos_multipolygon);
@@ -66,6 +67,16 @@ public:
 
     AreaHandler(DataStorage &data_storage) :
             ds(data_storage) {
+    }
+    
+    void complete_polygon_tree() {
+        if (count_polygons == 0) {
+            geos::geom::GeometryFactory geos_factory;
+            geos::geom::Point *point;
+            geos::geom::Coordinate coord(0, 0);
+            point = geos_factory.createPoint(coord);
+            ds.polygon_tree.insert(point->getEnvelopeInternal(), nullptr);
+        }
     }
 
     void area(const osmium::Area &area) {
@@ -96,7 +107,6 @@ public:
                 }
             }
         }
-
     }
 };
 

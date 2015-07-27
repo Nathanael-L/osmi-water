@@ -43,7 +43,7 @@ class timer
 
 inline double timer::elapsed_time()
 {
-    double time, mtime, seconds, useconds;
+    double time, seconds, useconds;
 
     timeval now;
     gettimeofday(&now, NULL);

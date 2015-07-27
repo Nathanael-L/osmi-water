@@ -41,6 +41,7 @@ class WaterwayCollector :
     static constexpr size_t max_buffer_size_for_flush = 100 * 1024;
 
     DataStorage &ds;
+    osmium::geom::GEOSFactory<> osmium_geos_factory;
 
     OGRGeometry *geos2ogr(const geos::geom::Geometry *g)
     {
@@ -52,7 +53,7 @@ class WaterwayCollector :
         wkbWriter.write(*g, ss);
         string wkb = ss.str();
         if (OGRGeometryFactory::createFromWkb((unsigned char *) wkb.c_str(),
-                                               nullptr, &out, wkb.size())
+                                              nullptr, &out, wkb.size())
             != OGRERR_NONE ) {
             out = nullptr;
             assert(false);
@@ -171,13 +172,12 @@ class WaterwayCollector :
                      bool &contains_nowaterway_ways,
                      vector<geos::geom::Geometry *> *linestrings) {
         
-        osmium::geom::GEOSFactory<> geos_factory;
         for (auto& member : relation.members()) {
             if (member_is_valid(member)) {
                 const osmium::Way& way = way_from(member);
                 linestring_type *linestr = nullptr;
                 try {
-                    linestr = geos_factory.create_linestring(way,
+                    linestr = osmium_geos_factory.create_linestring(way,
                             osmium::geom::use_nodes::unique,
                             osmium::geom::direction::forward).release();
                 } catch (osmium::geometry_error) {
