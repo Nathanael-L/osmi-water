@@ -150,8 +150,14 @@ int main(int argc, char* argv[]) {
      * analyse_nodes is detecting all possibly errors and mouths.
      */
     cerr << "Pass 2...\n";
+    AreaHandler area_handler(ds);
     osmium::io::Reader reader2(input_filename);
-    osmium::apply(reader2, location_handler, waterway_collector.handler());
+    osmium::apply(reader2, location_handler, waterway_collector.handler(),
+                  waterpolygon_collector.handler(
+                      [&area_handler]
+                      (const osmium::memory::Buffer &area_buffer) {
+                          osmium::apply(area_buffer, area_handler);
+                  }));
     waterway_collector.analyse_nodes();
     reader2.close();
     cerr << "Pass 2 done\n";
@@ -165,41 +171,41 @@ int main(int argc, char* argv[]) {
     IndicateFalsePositives indicate_false_positives(ds, location_handler);
     osmium::apply(reader3, indicate_false_positives);
     reader3.close();
+    area_handler.complete_polygon_tree();
+    indicate_false_positives.check_area();
     cerr << "Pass 3 done\n";
 
-    /***
-     * Pass 4: Collect all waterpolygons in and not in any relation.
-     * Insert features to polygons table.
-     * Indicate false positives by comparing the geometry of the error nodes
-     * and the polygons.
-     */
-    cerr << "Pass 4...\n";
-    { // Benchmark
-        t_total_pass4.start();
-        t_createpolygons.start();
-    }
-    osmium::io::Reader reader4(input_filename,
-            osmium::osm_entity_bits::way | osmium::osm_entity_bits::relation);
-    AreaHandler area_handler(ds);
-    osmium::apply(reader4, location_handler, waterpolygon_collector.handler(
-            [&area_handler, &indicate_false_positives]
-            (const osmium::memory::Buffer &area_buffer) {
-                osmium::apply(area_buffer, area_handler);
-            }));
-    area_handler.complete_polygon_tree();
-    reader4.close();
-    { // Benchmark
-        t_createpolygons.stop();
-        t_indicatefp.start();
-    }
-    indicate_false_positives.check_area();
-    { // Benchmark
-        t_indicatefp.stop();
-        t_total_pass4.stop();
-        print_pass4_time();
-    }
-    cerr << "Pass 4 done\n";
-
+//    /***
+//     * Pass 4: Collect all waterpolygons in and not in any relation.
+//     * Insert features to polygons table.
+//     * Indicate false positives by comparing the geometry of the error nodes
+//     * and the polygons.
+//     */
+//    cerr << "Pass 4...\n";
+//    { // Benchmark
+//        t_total_pass4.start();
+//        t_createpolygons.start();
+//    }
+//    osmium::io::Reader reader4(input_filename,
+//            osmium::osm_entity_bits::way | osmium::osm_entity_bits::relation);
+//    AreaHandler area_handler(ds);
+//    osmium::apply(reader4, location_handler, waterpolygon_collector.handler(
+//            [&area_handler, &indicate_false_positives]
+//            (const osmium::memory::Buffer &area_buffer) {
+//                osmium::apply(area_buffer, area_handler);
+//            }));
+//    reader4.close();
+//    { // Benchmark
+//        t_createpolygons.stop();
+//        t_indicatefp.start();
+//    }
+//    { // Benchmark
+//        t_indicatefp.stop();
+//        t_total_pass4.stop();
+//        print_pass4_time();
+//    }
+//    cerr << "Pass 4 done\n";
+//
     /***
      * Insert the error nodes into the nodes table.
      */

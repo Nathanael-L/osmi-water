@@ -5,6 +5,7 @@
 #ifndef DATASTORAGE_HPP_
 #define DATASTORAGE_HPP_
 
+#include <math.h>
 #include <geos/index/strtree/STRtree.h>
 #include <geos/index/ItemVisitor.h>
 #include <geos/geom/prep/PreparedPolygon.h>
@@ -437,32 +438,36 @@ class DataStorage {
         if (endptr == width_chr) {
             width = -1;
         } else if (*endptr) {
-           while(isspace(*endptr)) endptr++;
-           if (!strcasecmp(endptr, "m")) {
-           } else if (!strcasecmp(endptr, "km")) {
-               width *=1000;
-           } else if (!strcasecmp(endptr, "mi")) {
-               width *=1609.344;
-           } else if (!strcasecmp(endptr, "nmi")) {
-               width *=1852;
-           } else if (!strcmp(endptr, "'")) {
-               width *= 12.0 * 0.0254;
-           } else if (!strcmp(endptr, "\"")) {
-               width *= 0.0254;
-           } else if (*endptr == '\'') {
-               endptr++;
-               char *inchptr;
-               float inch = strtof(endptr, &inchptr);
-               if ((!strcmp(inchptr, "\"")) && (endptr != inchptr)) {
-                   width = (width * 12 + inch) * 0.0254;
-               } else {
-                   width = -1;
-                   err = true;
-               }
-           } else {
-               width = -1;
-               err = true;
-           }
+            while(isspace(*endptr)) endptr++;
+            if (!strcasecmp(endptr, "m")) {
+            } else if (!strcasecmp(endptr, "km")) {
+                width *= 1000;
+            } else if (!strcasecmp(endptr, "mi")) {
+                width *= 1609.344 * 10;
+                width = round(width) / 10;
+            } else if (!strcasecmp(endptr, "nmi")) {
+                width *= 1852;
+            } else if (!strcmp(endptr, "'")) {
+                width *= 12.0 * 0.0254 * 10;
+                width = round(width) / 10;
+            } else if (!strcmp(endptr, "\"")) {
+                width *= 0.0254 * 10;
+                width = round(width) / 10;
+            } else if (*endptr == '\'') {
+                endptr++;
+                char *inchptr;
+                float inch = strtof(endptr, &inchptr);
+                if ((!strcmp(inchptr, "\"")) && (endptr != inchptr)) {
+                    width = (width * 12 + inch) * 0.0254 * 10;
+                    width = round(width) / 10;
+                } else {
+                    width = -1;
+                    err = true;
+                }
+            } else {
+                width = -1;
+                err = true;
+            }
         }
         return err;
     }
