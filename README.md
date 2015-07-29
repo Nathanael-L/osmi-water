@@ -7,7 +7,7 @@ The programm is develeped during my internship at the geofabrik. If you see some
 
 ## Map File
 
-'water.map' ist the layer configuration file for the fileserver. If you like to set up a mapserver, take the file. Just the paths for the sqlite file must be mached.
+'water.map' ist the layer configuration file for the fileserver. If you like to set up a mapserver (mapserver.org), take the file. Just the paths for the sqlite file must be mached.
 
 ## Lizenz
 
