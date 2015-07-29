@@ -5,5 +5,13 @@ Software is not in use now, but tested with the whole osm planet. Written in c++
 
 The programm is develeped during my internship at the geofabrik. If you see some improvements, please let me know.
 
+## Map File
+
+'water.map' ist the layer configuration file for the fileserver. If you like to set up a mapserver, take the file. Just the paths for the sqlite file must be mached.
+
+## Lizenz
+
+The software is available under BSD License (http://www.linfo.org/bsdlicense.html)
+
 ## Author
 Nathanael Lang

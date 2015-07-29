@@ -1,0 +1,1401 @@
+#----------------------------------------------------------
+# THIS FILE HAS BEEN GENERATED AUTOMATICALLY. DO NOT EDIT!
+#----------------------------------------------------------
+MAP
+    NAME geofabrik_tools_osminspector_water
+    EXTENT -90 -180 90 180
+    FONTSET "../fontset"
+    SYMBOLSET "../symbolset"
+    CONFIG PROJ_LIB "/srv/tools/svn-tools/osm-inspector/proj/"
+    CONFIG MS_ERRORFILE "/var/log/mapserver/water.log"
+    DEBUG 3
+    SHAPEPATH "/srv/tools/shapes"
+
+    PROJECTION
+        "init=epsg:4326"
+    END
+
+    IMAGECOLOR 255 255 254
+
+    LEGEND
+        STATUS ON
+    END
+
+    WEB
+        METADATA
+            OWS_NAME geofabrik_tools_osminspector_water
+            OWS_TITLE "Geofabrik Tools: OSM Inspector (Water2)"
+            OWS_ABSTRACT "OSM Inspector is a debugging tool for OpenStreetMap data."
+            OWS_ONLINERESOURCE "http://tools.geofabrik.de/osmi/views/water/wxs?"
+            OWS_SERVER_VERSION "1.1.1"
+            OWS_SRS "EPSG:4326 EPSG:900913"
+            OWS_ATTRIBUTION_TITLE "Geofabrik GmbH/OpenStreetMap Contributors"
+            OWS_ATTRIBUTION_ONLINERESOURCE "http://www.geofabrik.de/"
+            OWS_KEYWORDLIST "Geofabrik,OpenStreetMap,OSM,OSM Inspector"
+            OWS_FEATURE_INFO_MIME_TYPE "text/html"
+            OWS_CONTACTELECTRONICMAILADDRESS "info@geofabrik.de"
+            OWS_CONTACTPERSON "Jochen Topf"
+            OWS_CONTACTVOICETELEPHONE "+49-721-1803560-0"
+            OWS_CONTACTORGANIZATION "Geofabrik GmbH"
+            OWS_ENCODING "utf-8"
+            OWS_ENABLE_REQUEST "*"
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME riverbank_areas
+        TYPE POLYGON
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_polygons.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/riverbank_areas-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME riverbank_areas
+            OWS_TITLE "Riverbank areas"
+            OWS_ABSTRACT "Polygons created out of a single closed way tagged with natural=water."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=9,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        LABELITEM "name"
+        LABELMAXSCALEDENOM 750000
+        LABELMINSCALEDENOM 1
+        FILTER ('[type]'=='riverbank')
+        CLASS
+            NAME "Riverbank areas"
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 1
+            STYLE
+                COLOR 182 199 255
+                OUTLINECOLOR 0 0 200
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 164 179 255
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                POSITION cc
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME water_areas
+        TYPE POLYGON
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_polygons.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/water_areas-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME water_areas
+            OWS_TITLE "Water areas"
+            OWS_ABSTRACT "Polygons created out of a single closed way tagged with natural=water."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=9,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        LABELITEM "name"
+        LABELMAXSCALEDENOM 750000
+        LABELMINSCALEDENOM 1
+        FILTER ('[type]'!='riverbank')
+        CLASS
+            NAME "Water areas"
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 1
+            STYLE
+                COLOR 164 179 255
+                OUTLINECOLOR 0 0 200
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 164 179 255
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                POSITION cc
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME coastline
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/coastline-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME coastline
+            OWS_TITLE "Coastline"
+            OWS_ABSTRACT "Ways tagged with natural=coastline."
+            OWS_KEYWORDLIST "datasrc=OSM,min=6,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='coastline')
+        CLASS
+            MAXSCALEDENOM 12500000
+            MINSCALEDENOM 1
+            NAME "Coastline"
+            STYLE
+                WIDTH 6
+                COLOR 190 190 238
+                ANTIALIAS true
+                OFFSET 4 -99
+            END
+            STYLE
+                WIDTH 2
+                COLOR 0 176 75
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    # Not queryable
+    LAYER
+        NAME waterways_width
+        TYPE LINE
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_width-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_width
+            OWS_TITLE "Waterways with width"
+            OWS_ABSTRACT "Ways tagged as waterway=river/stream/canal and including a width=* tag."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22,label=Width,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ([width]>0)
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "width"
+        CLASS
+            NAME "Waterways with width"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 10
+                COLOR 181 224 243
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 12
+                COLOR 191 0 193
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                MINFEATURESIZE 30
+                ANGLE AUTO
+                OFFSET 0 -10
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    # Not queryable
+    LAYER
+        NAME waterways_width_error
+        TYPE LINE
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_width_error-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_width_error
+            OWS_TITLE "Waterways with width error"
+            OWS_ABSTRACT "Ways tagged as waterway=river/stream/canal with invalid width value."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[width_error]'=='true')
+        CLASS
+            NAME "Waterways width error"
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 6
+                COLOR 253 74 255
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    # Not queryable
+    LAYER
+        NAME waterways_in_tunnels
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_in_tunnels-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_in_tunnels
+            OWS_TITLE "Waterways in tunnels"
+            OWS_ABSTRACT "Waterways running through a tunnel."
+            OWS_KEYWORDLIST "datasrc=OSM,min=14,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[construction]'=='tunnel')
+        CLASS
+            NAME "Waterways in tunnels"
+            MAXSCALEDENOM 50000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "dashed-line-1-1"
+                COLOR 0 0 0
+                ANTIALIAS true
+            END
+            STYLE
+                WIDTH 4
+                COLOR 255 255 255
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    # Not queryable
+    LAYER
+        NAME waterways_on_bridges
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_on_bridges-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_on_bridges
+            OWS_TITLE "Waterways on bridges"
+            OWS_ABSTRACT "Waterways running over a bridge/aqueduct/viaduct."
+            OWS_KEYWORDLIST "datasrc=OSM,min=14,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[construction]'=='bridge')
+        CLASS
+            NAME "Waterways on bridges"
+            MAXSCALEDENOM 50000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 6
+                COLOR 0 0 0
+                ANTIALIAS true
+            END
+            STYLE
+                WIDTH 4
+                COLOR 255 255 255
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterways_drain
+        TYPE LINE
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_drain-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_drain
+            OWS_TITLE "Waterways/Drain"
+            OWS_ABSTRACT "Ways tagged as waterway=drain or ditch. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='drain' or '[type]'=='ditch')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Drain"
+            MAXSCALEDENOM 1500000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 1
+                COLOR 143 99 47
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 143 99 47
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 143 99 47
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterways_canal
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_canal-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_canal
+            OWS_TITLE "Waterways/Canal"
+            OWS_ABSTRACT "Ways tagged as waterway=canal. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='canal')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Canal"
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 2
+                COLOR 207 140 24
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 207 140 24
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 207 140 24
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterways_stream
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"  
+        TRANSPARENCY alpha
+        #
+        
+        TEMPLATE "/srv/tools/views/water/waterways_stream-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_stream
+            OWS_TITLE "Waterways/Stream"
+            OWS_ABSTRACT "Ways tagged as waterway=stream. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='stream')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Stream"
+            MAXSCALEDENOM 1500000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 1
+                COLOR 33 163 219
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 33 163 219
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 33 163 219
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterways_river
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_river-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_river
+            OWS_TITLE "Waterways/River"
+            OWS_ABSTRACT "Ways tagged as waterway=river. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=9,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='river')
+        LABELMAXSCALEDENOM 1500000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 200000
+            NAME "River"
+            STYLE
+                WIDTH 2
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 33 33 219
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterways_riverbank
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_riverbank-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_riverbank
+            OWS_TITLE "Waterways/Riverbank"
+            OWS_ABSTRACT "Ways tagged as waterway=riverbank."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='riverbank')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Riverbank"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "dashed-line-2-1"
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterways_other
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_other-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_other
+            OWS_TITLE "Waterways/Other"
+            OWS_ABSTRACT "Ways tagged as waterway=*, but not 'riverbank', 'river', 'stream', 'canal', or 'drain'."
+            OWS_KEYWORDLIST "min=0,max=22,label=13,osm"
+            OWS_KEYWORDLIST "datasrc=OSM,min=12,max=22,label=Type,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='other')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Other"
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 0 0 0
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                MINFEATURESIZE 30
+                POSITION cc
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterrelations_drain
+        TYPE LINE
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_relations.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterrelations_drain-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterrelations_drain
+            OWS_TITLE "Water Relation/Drain"
+            OWS_ABSTRACT "Relations tagged as waterway=drain or ditch. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='drain' or '[type]'=='ditch')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Drain"
+            MAXSCALEDENOM 1500000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 1
+                COLOR 143 99 47
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 143 99 47
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 143 99 47
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterrelations_canal
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_relations.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterrelations_canal-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterrelations_canal
+            OWS_TITLE "Water Relation/Canal"
+            OWS_ABSTRACT "Relations tagged as waterway=canal. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='canal')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Canal"
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 2
+                COLOR 207 140 24
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 207 140 24
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 207 140 24
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterrelations_stream
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_relations.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterrelations_stream-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterrelations_stream
+            OWS_TITLE "Water Relation/Stream"
+            OWS_ABSTRACT "Relations tagged as waterway=stream. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='stream')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Stream"
+            MAXSCALEDENOM 1500000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 1
+                COLOR 33 163 219
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 33 163 219
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 33 163 219
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterrelations_river
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_relations.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterrelations_river-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterrelations_river
+            OWS_TITLE "Water Relation/River"
+            OWS_ABSTRACT "Relations tagged as waterway=river. In zoom level 12 or higher arrows in the direction of the way (direction the water flows) are shown."
+            OWS_KEYWORDLIST "datasrc=OSM,min=8,max=22,label=Name,labelmin=9,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='river')
+        LABELMAXSCALEDENOM 1500000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            MAXSCALEDENOM 3000000
+            MINSCALEDENOM 200000
+            NAME "River"
+            STYLE
+                WIDTH 2
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 33 33 219
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterrelations_riverbank
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_relations.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterrelations_riverbank-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterrelations_riverbank
+            OWS_TITLE "Water Relation/Riverbank"
+            OWS_ABSTRACT "Relations tagged as waterway=riverbank."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22,label=Name,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='riverbank')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Riverbank"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "dashed-line-2-1"
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                ANGLE AUTO
+                OFFSET 0 6
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterrelations_other
+        TYPE LINE
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_relations.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterrelations_other-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterrelations_other
+            OWS_TITLE "Water Relation/Other"
+            OWS_ABSTRACT "Relations tagged as waterway=*, but not 'riverbank', 'river', 'stream', 'canal', or 'drain'."
+            OWS_KEYWORDLIST "min=0,max=22,label=13,osm"
+            OWS_KEYWORDLIST "datasrc=OSM,min=12,max=22,label=Type,labelmin=13,labelmax=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type]'=='other')
+        LABELMAXSCALEDENOM 100000
+        LABELMINSCALEDENOM 1
+        LABELITEM "name"
+        CLASS
+            NAME "Other"
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 0 0 0
+                ANTIALIAS true
+            END
+            LABEL
+                SIZE 8
+                COLOR 0 0 0
+                OUTLINECOLOR 255 255 255
+                TYPE TRUETYPE
+                FONT "DejaVuSans"
+                MINDISTANCE 20
+                MINFEATURESIZE 30
+                POSITION cc
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    # Not queryable
+    LAYER
+        NAME waterways_without_names
+        TYPE LINE
+        STATUS ON
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_ways.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        
+        TEMPLATE "/srv/tools/views/water/waterways_without_names-template.html"
+        DUMP true
+        TOLERANCE 5
+        METADATA
+            OWS_NAME waterways_without_names
+            OWS_TITLE "Waterways without names"
+            OWS_ABSTRACT "Rivers, streams, and canals without names."
+            OWS_KEYWORDLIST "datasrc=OSM,min=7,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER (('[name]'=='') AND (('[type]'=='river') OR ('[type]'=='stream') OR ('[type]'=='canal')))
+        CLASS
+            NAME "Waterways without names"
+            MAXSCALEDENOM 1500000
+            MINSCALEDENOM 200000
+            STYLE
+                WIDTH 1
+                COLOR 200 0 0
+                ANTIALIAS true
+            END
+        END
+        CLASS
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                WIDTH 2
+                COLOR 200 0 0
+                ANTIALIAS true
+            END
+            STYLE
+                SYMBOL "arrow"
+                SIZE 12
+                COLOR 200 0 0
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterway_nodes
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/waterway_nodes-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME waterway_nodes
+            OWS_TITLE "Waterway nodes"
+            OWS_ABSTRACT "Points where one way tagged with waterway=* ends and another starts."
+            OWS_KEYWORDLIST "datasrc=OSM,min=11,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER (('[direction_error]'=='false') AND ('[name_error]'=='false') AND ('[type_error]'=='false') AND ('[spring_error]'=='false') AND ('[end_error]'=='false') AND ('[specific]'==''))
+        CLASS
+            NAME "Waterway nodes"
+            MAXSCALEDENOM 100000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "circle"
+                SIZE 7
+                COLOR 33 33 219
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME rivermouths
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/rivermouths-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME rivermouths
+            OWS_TITLE "Inflows"
+            OWS_ABSTRACT "Points where a way ends in a way or body."
+            OWS_KEYWORDLIST "datasrc=OSM,min=11,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[specific]'=='rivermouth')
+        CLASS
+            NAME "Inflows"
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "triangle"
+                SIZE 10
+                COLOR 0 176 75
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME outflows
+        TYPE POINT
+        STATUS OFF
+
+        CONNECTIONTYPE OGR 
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/outflows-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME outflows
+            OWS_TITLE "Outflows"
+            OWS_ABSTRACT "Points where a way begins in a way or body."
+            OWS_KEYWORDLIST "datasrc=OSM,min=11,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[specific]'=='outflow')
+        CLASS
+            NAME "Outflows"
+            MAXSCALEDENOM 200000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "triangle"
+                SIZE 10
+                COLOR 141 176 0
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterway_nodes_direction_error
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/waterway_nodes_direction_error-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME waterway_nodes_direction_error
+            OWS_TITLE "Waterway nodes with possible direction errors"
+            OWS_ABSTRACT "Points where two ways tagged with waterway=* end or start."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[direction_error]'=='true')
+        CLASS
+            NAME "Waterway nodes direction error"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "circle"
+                SIZE 7
+                COLOR 219 33 66
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterway_nodes_name_error
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/waterway_nodes_name_error-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME waterway_nodes_name_error
+            OWS_TITLE "Waterway nodes with possible name errors"
+            OWS_ABSTRACT "Points where one way tagged with waterway=* ends and another starts and have different names."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[name_error]'=='true')
+        CLASS
+            NAME "Waterway nodes name error"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "circle"
+                SIZE 7
+                COLOR 219 33 66
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterway_nodes_type_error
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        #
+        
+        TEMPLATE "/srv/tools/views/water/waterway_nodes_type_error-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME waterway_nodes_type_error
+            OWS_TITLE "Waterway nodes with possible type errors"
+            OWS_ABSTRACT "Points where one way tagged with waterway=river flows in a smaller waterway type."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[type_error]'=='true')
+        CLASS
+            NAME "Waterway nodes type error"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "circle"
+                SIZE 7
+                COLOR 219 33 66
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterway_nodes_spring_error
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/waterway_nodes_spring_error-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME waterway_nodes_spring_error
+            OWS_TITLE "Waterway nodes with possible spring errors"
+            OWS_ABSTRACT "Points where one way tagged with waterway=river suddenly begins."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[spring_error]'=='true')
+        CLASS
+            NAME "Waterway nodes spring error"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "circle"
+                SIZE 7
+                COLOR 219 33 66
+                ANTIALIAS true
+            END
+        END
+    END
+
+    #-------------------------------------------------------------------
+    LAYER
+        NAME waterway_nodes_end_error
+        TYPE POINT
+        STATUS OFF
+        CONNECTIONTYPE OGR
+        TILEINDEX "/srv/tools/sqlite/tileindex_osmi_water_nodes.shp"
+        TILEITEM "LOCATION"
+        TRANSPARENCY alpha
+        TOLERANCE 5
+        
+        TEMPLATE "/srv/tools/views/water/waterway_nodes_end_error-template.html"
+        DUMP true
+        METADATA
+            OWS_NAME waterway_nodes_end_error
+            OWS_TITLE "Waterway nodes with possible end errors"
+            OWS_ABSTRACT "Points where one way tagged with waterway=river suddenly ends."
+            OWS_KEYWORDLIST "datasrc=OSM,min=10,max=22"
+            OWS_SRS "EPSG:4326 EPSG:3857"
+            GML_FEATUREID "ID"
+            GML_INCLUDE_ITEMS "all"
+        END
+        FILTER ('[end_error]'=='true')
+        CLASS
+            NAME "Waterway nodes end error"
+            MAXSCALEDENOM 750000
+            MINSCALEDENOM 1
+            STYLE
+                SYMBOL "circle"
+                SIZE 7
+                COLOR 219 33 66
+                ANTIALIAS true
+            END
+        END
+    END
+END
+
