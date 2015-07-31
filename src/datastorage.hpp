@@ -284,7 +284,7 @@ class DataStorage {
             exit(1);
         }
 
-        OGRFieldDefn layer_ways_field_width("width", OFTReal);
+        OGRFieldDefn layer_ways_field_width("width", OFTString);
         layer_ways_field_width.SetWidth(10);
         if (m_layer_ways->CreateField(&layer_ways_field_width) != OGRERR_NONE) {
             cerr << "Creating width field in table ways failed.\n";
@@ -419,16 +419,16 @@ class DataStorage {
 
     /***
      * Get width as float in meter from the common formats. Detect errors
-     * within the width sting.
-     * A ',' as separator dedicates an error, but is handled.
+     * within the width string.
+     * A ',' as separator dedicates an erroror, but is handled.
      */
     bool get_width(const char *width_chr, float &width) {
         string width_str = width_chr;
-        bool err = false;
+        bool error = false;
 
         if (width_str.find(",") != string::npos) {
             width_str.replace(width_str.find(","), 1, ".");
-            err = true;
+            error = true;
             width_chr = width_str.c_str();
         }
 
@@ -443,33 +443,40 @@ class DataStorage {
             } else if (!strcasecmp(endptr, "km")) {
                 width *= 1000;
             } else if (!strcasecmp(endptr, "mi")) {
-                width *= 1609.344 * 10;
-                width = round(width) / 10;
+                width *= 1609.344;
             } else if (!strcasecmp(endptr, "nmi")) {
                 width *= 1852;
             } else if (!strcmp(endptr, "'")) {
-                width *= 12.0 * 0.0254 * 10;
-                width = round(width) / 10;
+                width *= 12.0 * 0.0254;
             } else if (!strcmp(endptr, "\"")) {
-                width *= 0.0254 * 10;
-                width = round(width) / 10;
+                width *= 0.0254;
             } else if (*endptr == '\'') {
                 endptr++;
                 char *inchptr;
                 float inch = strtof(endptr, &inchptr);
                 if ((!strcmp(inchptr, "\"")) && (endptr != inchptr)) {
-                    width = (width * 12 + inch) * 0.0254 * 10;
-                    width = round(width) / 10;
+                    width = (width * 12 + inch) * 0.0254;
                 } else {
                     width = -1;
-                    err = true;
+                    error = true;
                 }
             } else {
                 width = -1;
-                err = true;
+                error = true;
             }
         }
-        return err;
+        return error;
+    }
+
+    string width2string(float &width) {
+        int rounded_width = static_cast<int> (round(width * 10));
+        string width_str = to_string(rounded_width);
+        if (width_str.length() == 1) {
+            width_str.insert(width_str.begin(), '0');
+        }
+        width_str.insert(width_str.end() - 1, '.');
+        cout << "width: " << width_str << endl;
+        return width_str;
     }
 
     void remember_way(osmium::object_id_type first_node,
@@ -627,7 +634,7 @@ public:
         feature->SetField("lastchange", get_timestamp(way.timestamp()).c_str());
         feature->SetField("construction", construction);
         feature->SetField("width_error", (width_err) ? "true" : "false");
-        if (w>-1) feature->SetField("width", w);
+        if (w > -1) feature->SetField("width", width2string(w).c_str());
 
         if (m_layer_ways->CreateFeature(feature) != OGRERR_NONE) {
             cerr << "Failed to create way feature.\n";

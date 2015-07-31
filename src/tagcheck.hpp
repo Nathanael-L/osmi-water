@@ -215,7 +215,6 @@ public:
         return type;
     }
 
-
     static const char *get_name(const osmium::OSMObject &osm_object) {
         const char *name = osm_object.get_value_by_key("name");
         if (!name) name = "";
@@ -245,8 +244,6 @@ public:
         }
         return construction;
     }
-    
-
 };
 
 #endif /* TAGCHECK_HPP_ */
