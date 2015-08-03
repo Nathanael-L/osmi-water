@@ -31,7 +31,7 @@ MAP
             OWS_KEYWORDLIST "Geofabrik,OpenStreetMap,OSM,OSM Inspector"
             OWS_FEATURE_INFO_MIME_TYPE "text/html"
             OWS_CONTACTELECTRONICMAILADDRESS "info@geofabrik.de"
-            OWS_CONTACTPERSON "Jochen Topf"
+            OWS_CONTACTPERSON "Geofabrik Admin"
             OWS_CONTACTVOICETELEPHONE "+49-721-1803560-0"
             OWS_CONTACTORGANIZATION "Geofabrik GmbH"
             OWS_ENCODING "utf-8"
