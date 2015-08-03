@@ -475,7 +475,6 @@ class DataStorage {
             width_str.insert(width_str.begin(), '0');
         }
         width_str.insert(width_str.end() - 1, '.');
-        cout << "width: " << width_str << endl;
         return width_str;
     }
 
