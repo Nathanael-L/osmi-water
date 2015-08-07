@@ -125,7 +125,7 @@ public:
                 point = geos_factory.create_point(location).release();
             } catch (...) {
                 cerr << "Error at node: " << node_id
-                     << " - not able to create point of location.";
+                     << " - not able to create point of location." << endl;
                 continue;
             }
             vector<void *> results;

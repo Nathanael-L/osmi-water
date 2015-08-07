@@ -280,6 +280,20 @@ class WaterwayCollector :
         OGRGeometryFactory::destroyGeometry(ogr_multilinestring);
     }
 
+    void handle_relation(const osmium::relations::RelationMeta& relation_meta) {
+        const osmium::Relation& relation = this->get_relation(relation_meta);
+        const osmium::object_id_type relation_id = relation.id();
+        vector<geos::geom::Geometry *> *linestrings;
+        linestrings = new vector<geos::geom::Geometry *>();
+        bool contains_nowaterway_ways = false;
+        
+        create_ways(relation, relation_id, contains_nowaterway_ways,
+                    linestrings);
+
+        create_relation(relation, relation_id, contains_nowaterway_ways,
+                         linestrings);
+    }
+
     void create_single_way(const osmium::Way &way) {
         osmium::geom::OGRFactory<> ogr_factory;
         OGRLineString *linestring = nullptr;
@@ -313,9 +327,9 @@ public:
 
     explicit WaterwayCollector(location_handler_type &location_handler,
                                DataStorage &data_storage) :
-            collector_type(),
-            location_handler(location_handler),
-            ds(data_storage) {
+        collector_type(),
+        location_handler(location_handler),
+        ds(data_storage) {
     }
 
     ~WaterwayCollector() {
@@ -344,6 +358,33 @@ public:
         size_t temp = this->get_offset(member.type(), member.ref());
         osmium::memory::Buffer& mb = this->members_buffer();
         return mb.get<const osmium::Way>(temp);
+    }
+
+    /***
+     * For the found relations, insert multilinestings into table relations and
+     * linestrings into table ways.
+     */
+    void complete_relation(const osmium::relations::RelationMeta& relation_meta) {
+        handle_relation(relation_meta);
+    }
+
+    /***
+     * Insert waterways not in any relation into table ways.
+     */
+    void way_not_in_any_relation(const osmium::Way& way) {
+        if (way_is_valid(way)) {
+            create_single_way(way);
+        }
+    }
+    
+    /***
+     * Insert waterways and relations of incomplete relations.
+     */
+    void ways_in_incomplete_relation() {
+        clean_assembled_relations();
+        for (auto relation_meta : relations()) {
+            handle_relation(relation_meta);
+        }
     }
 
     /***
@@ -384,33 +425,6 @@ public:
                 continue;
             }
             fid++;
-        }
-    }
-
-    /***
-     * For the found relations, insert multilinestings into table relations and
-     * linestrings into table ways.
-     */
-    void complete_relation(osmium::relations::RelationMeta& relation_meta) {
-        const osmium::Relation& relation = this->get_relation(relation_meta);
-        const osmium::object_id_type relation_id = relation.id();
-        vector<geos::geom::Geometry *> *linestrings;
-        linestrings = new vector<geos::geom::Geometry *>();
-        bool contains_nowaterway_ways = false;
-        
-        create_ways(relation, relation_id, contains_nowaterway_ways,
-                    linestrings);
-
-        create_relation(relation, relation_id, contains_nowaterway_ways,
-                         linestrings);
-    }
-
-    /***
-     * Insert waterways not in any relation into table ways.
-     */
-    void way_not_in_any_relation(const osmium::Way& way) {
-        if (way_is_valid(way)) {
-            create_single_way(way);
         }
     }
 };

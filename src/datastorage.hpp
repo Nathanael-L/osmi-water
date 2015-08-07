@@ -82,7 +82,7 @@ class DataStorage {
             "SQLite");
 
         if (!driver) {
-            cerr << "SQLite" << " driver not available.\n";
+            cerr << "SQLite" << " driver not available." << endl;
             exit(1);
         }
 
@@ -91,7 +91,7 @@ class DataStorage {
         m_data_source = driver->CreateDataSource(output_filename.c_str(),
                                                  const_cast<char**>(options));
         if (!m_data_source) {
-            cerr << "Creation of output file failed.\n";
+            cerr << "Creation of output file failed." << endl;
             exit(1);
         }
 
@@ -102,7 +102,7 @@ class DataStorage {
         m_layer_polygons = m_data_source->CreateLayer("polygons", &sparef,
                                                       wkbMultiPolygon, nullptr);
         if (!m_layer_polygons) {
-            cerr << "Layer polygons creation failed.\n";
+            cerr << "Layer polygons creation failed." << endl;
             exit(1);
         }
 
@@ -110,7 +110,7 @@ class DataStorage {
         layer_polygons_field_way_id.SetWidth(12);
         if (m_layer_polygons->CreateField(&layer_polygons_field_way_id)
                 != OGRERR_NONE) {
-            cerr << "Creating way_id field failed.\n";
+            cerr << "Creating way_id field failed." << endl;
             exit(1);
         }
 
@@ -119,7 +119,7 @@ class DataStorage {
         layer_polygons_field_relation_id.SetWidth(12);
         if (m_layer_polygons->CreateField(&layer_polygons_field_relation_id)
                 != OGRERR_NONE) {
-            cerr << "Creating relation_id field failed.\n";
+            cerr << "Creating relation_id field failed." << endl;
             exit(1);
         }
 
@@ -127,7 +127,7 @@ class DataStorage {
         layer_polygons_field_type.SetWidth(10);
         if (m_layer_polygons->CreateField(&layer_polygons_field_type)
                 != OGRERR_NONE) {
-            cerr << "Creating type field failed.\n";
+            cerr << "Creating type field failed." << endl;
             exit(1);
         }
 
@@ -135,7 +135,7 @@ class DataStorage {
         layer_polygons_field_name.SetWidth(30);
         if (m_layer_polygons->CreateField(&layer_polygons_field_name)
                 != OGRERR_NONE) {
-            cerr << "Creating name field failed.\n";
+            cerr << "Creating name field failed." << endl;
             exit(1);
         }
 
@@ -143,7 +143,7 @@ class DataStorage {
         layer_polygons_field_lastchange.SetWidth(20);
         if (m_layer_polygons->CreateField(&layer_polygons_field_lastchange)
                 != OGRERR_NONE) {
-            cerr << "Creating lastchange field failed.\n";
+            cerr << "Creating lastchange field failed." << endl;
             exit(1);
         }
 
@@ -151,13 +151,13 @@ class DataStorage {
         layer_polygons_field_error.SetWidth(6);
         if (m_layer_polygons->CreateField(&layer_polygons_field_error)
                 != OGRERR_NONE) {
-            cerr << "Creating error field failed.\n";
+            cerr << "Creating error field failed." << endl;
             exit(1);
         }
 
         int ogrerr = m_layer_polygons->StartTransaction();
         if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating polygons table failed.\n";
+            cerr << "Creating polygons table failed." << endl;
             cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
@@ -168,7 +168,7 @@ class DataStorage {
                                                        wkbMultiLineString,
                                                        nullptr);
         if (!m_layer_relations) {
-            cerr << "Layer relations creation failed.\n";
+            cerr << "Layer relations creation failed." << endl;
             exit(1);
         }
 
@@ -176,7 +176,7 @@ class DataStorage {
         layer_relations_field_id.SetWidth(12);
         if (m_layer_relations->CreateField(&layer_relations_field_id)
                 != OGRERR_NONE) {
-            cerr << "Creating relation_id field in table realtions failed.\n";
+            cerr << "Creating relation_id field in table realtions failed." << endl;
             exit(1);
         }
 
@@ -184,7 +184,7 @@ class DataStorage {
         layer_relations_field_type.SetWidth(10);
         if (m_layer_relations->CreateField(&layer_relations_field_type)
                 != OGRERR_NONE) {
-            cerr << "Creating type field in table realtions failed.\n";
+            cerr << "Creating type field in table realtions failed." << endl;
             exit(1);
         }
 
@@ -192,7 +192,7 @@ class DataStorage {
         layer_relations_field_type.SetWidth(30);
         if (m_layer_relations->CreateField(&layer_relations_field_name)
                 != OGRERR_NONE) {
-            cerr << "Creating name field in table realtions failed.\n";
+            cerr << "Creating name field in table realtions failed." << endl;
             exit(1);
         }
 
@@ -200,7 +200,7 @@ class DataStorage {
         layer_relations_field_lastchange.SetWidth(20);
         if (m_layer_relations->CreateField(&layer_relations_field_lastchange)
                 != OGRERR_NONE) {
-            cerr << "Creating lastchange field in table realtions failed.\n";
+            cerr << "Creating lastchange field in table realtions failed." << endl;
             exit(1);
         }
 
@@ -220,13 +220,13 @@ class DataStorage {
         layer_relations_field_type.SetWidth(6);
         if (m_layer_relations->CreateField(&layer_relations_field_tagging_error)
                 != OGRERR_NONE) {
-            cerr << "Creating tagging_error field in table realtions failed.\n";
+            cerr << "Creating tagging_error field in table realtions failed." << endl;
             exit(1);
         }
 
         ogrerr = m_layer_relations->StartTransaction();
         if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating relations table failed.\n";
+            cerr << "Creating relations table failed." << endl;
             cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
@@ -235,28 +235,28 @@ class DataStorage {
         m_layer_ways = m_data_source->CreateLayer("ways", &sparef,
                                                   wkbLineString, nullptr);
         if (!m_layer_ways) {
-            cerr << "Layer ways creation in table ways failed.\n";
+            cerr << "Layer ways creation in table ways failed." << endl;
             exit(1);
         }
 
         OGRFieldDefn layer_ways_field_id("way_id", OFTInteger);
         layer_ways_field_id.SetWidth(12);
         if (m_layer_ways->CreateField(&layer_ways_field_id) != OGRERR_NONE) {
-            cerr << "Creating way_id field in table ways failed.\n";
+            cerr << "Creating way_id field in table ways failed." << endl;
             exit(1);
         }
 
         OGRFieldDefn layer_ways_field_type("type", OFTString);
         layer_ways_field_type.SetWidth(10);
         if (m_layer_ways->CreateField(&layer_ways_field_type) != OGRERR_NONE) {
-            cerr << "Creating type field in table ways failed.\n";
+            cerr << "Creating type field in table ways failed." << endl;
             exit(1);
         }
 
         OGRFieldDefn layer_ways_field_name("name", OFTString);
         layer_ways_field_name.SetWidth(30);
         if (m_layer_ways->CreateField(&layer_ways_field_name) != OGRERR_NONE) {
-            cerr << "Creating name field in table ways failed.\n";
+            cerr << "Creating name field in table ways failed." << endl;
             exit(1);
         }
 
@@ -264,7 +264,7 @@ class DataStorage {
         layer_ways_field_first_node.SetWidth(11);
         if (m_layer_ways->CreateField(&layer_ways_field_first_node)
                 != OGRERR_NONE) {
-            cerr << "Creating firstnode field in table ways failed.\n";
+            cerr << "Creating firstnode field in table ways failed." << endl;
             exit(1);
         }
 
@@ -272,7 +272,7 @@ class DataStorage {
         layer_ways_field_last_node.SetWidth(11);
         if (m_layer_ways->CreateField(&layer_ways_field_last_node)
                 != OGRERR_NONE) {
-            cerr << "Creating lastnode field in table ways failed.\n";
+            cerr << "Creating lastnode field in table ways failed." << endl;
             exit(1);
         }
 
@@ -280,14 +280,14 @@ class DataStorage {
         layer_ways_field_relation.SetWidth(10);
         if (m_layer_ways->CreateField(&layer_ways_field_relation)
                 != OGRERR_NONE) {
-            cerr << "Creating relation_id field in table ways failed.\n";
+            cerr << "Creating relation_id field in table ways failed." << endl;
             exit(1);
         }
 
         OGRFieldDefn layer_ways_field_width("width", OFTString);
         layer_ways_field_width.SetWidth(10);
         if (m_layer_ways->CreateField(&layer_ways_field_width) != OGRERR_NONE) {
-            cerr << "Creating width field in table ways failed.\n";
+            cerr << "Creating width field in table ways failed." << endl;
             exit(1);
         }
 
@@ -295,7 +295,7 @@ class DataStorage {
         layer_ways_field_lastchange.SetWidth(20);
         if (m_layer_ways->CreateField(&layer_ways_field_lastchange)
                 != OGRERR_NONE) {
-            cerr << "Creating lastchange field in table ways failed.\n";
+            cerr << "Creating lastchange field in table ways failed." << endl;
             exit(1);
         }
 
@@ -303,7 +303,7 @@ class DataStorage {
         layer_ways_field_construction.SetWidth(7);
         if (m_layer_ways->CreateField(&layer_ways_field_construction)
                 != OGRERR_NONE) {
-            cerr << "Creating construction field in table ways failed.\n";
+            cerr << "Creating construction field in table ways failed." << endl;
             exit(1);
         }
 
@@ -311,7 +311,7 @@ class DataStorage {
         layer_ways_field_width_error.SetWidth(6);
         if (m_layer_ways->CreateField(&layer_ways_field_width_error)
                 != OGRERR_NONE) {
-            cerr << "Creating width_error field in table ways failed.\n";
+            cerr << "Creating width_error field in table ways failed." << endl;
             exit(1);
         }
 
@@ -319,13 +319,13 @@ class DataStorage {
         layer_ways_field_type.SetWidth(6);
         if (m_layer_ways->CreateField(&layer_ways_field_tagging_error)
                 != OGRERR_NONE) {
-            cerr << "Creating tagging_error field in table ways failed.\n";
+            cerr << "Creating tagging_error field in table ways failed." << endl;
             exit(1);
         }
 
         ogrerr = m_layer_ways->StartTransaction();
         if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating ways table failed.\n";
+            cerr << "Creating ways table failed." << endl;
             cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
@@ -334,14 +334,14 @@ class DataStorage {
         m_layer_nodes = m_data_source->CreateLayer("nodes", &sparef,
                                                    wkbPoint, nullptr);
         if (!m_layer_nodes) {
-            cerr << "Layer nodes creation failed.\n";
+            cerr << "Layer nodes creation failed." << endl;
             exit(1);
         }
 
         OGRFieldDefn layer_nodes_field_id("node_id", OFTString);
         layer_nodes_field_id.SetWidth(12);
         if (m_layer_nodes->CreateField(&layer_nodes_field_id) != OGRERR_NONE) {
-            cerr << "Creating node_id field in table nodes failed.\n";
+            cerr << "Creating node_id field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -349,7 +349,7 @@ class DataStorage {
         layer_nodes_field_specific.SetWidth(11);
         if (m_layer_nodes->CreateField(&layer_nodes_field_specific)
                 != OGRERR_NONE) {
-            cerr << "Creating id field in table nodes failed.\n";
+            cerr << "Creating id field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -358,7 +358,7 @@ class DataStorage {
         layer_nodes_field_direction_error.SetWidth(6);
         if (m_layer_nodes->CreateField(&layer_nodes_field_direction_error)
                 != OGRERR_NONE) {
-            cerr << "Creating direction_error field in table nodes failed.\n";
+            cerr << "Creating direction_error field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -366,7 +366,7 @@ class DataStorage {
         layer_nodes_field_name_error.SetWidth(6);
         if (m_layer_nodes->CreateField(&layer_nodes_field_name_error)
                 != OGRERR_NONE) {
-            cerr << "Creating name_error field in table nodes failed.\n";
+            cerr << "Creating name_error field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -374,7 +374,7 @@ class DataStorage {
         layer_nodes_field_type_error.SetWidth(6);
         if (m_layer_nodes->CreateField(&layer_nodes_field_type_error)
                 != OGRERR_NONE) {
-            cerr << "Creating type_error field in table nodes failed.\n";
+            cerr << "Creating type_error field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -382,7 +382,7 @@ class DataStorage {
         layer_nodes_field_spring_error.SetWidth(6);
         if (m_layer_nodes->CreateField(&layer_nodes_field_spring_error)
                 != OGRERR_NONE) {
-            cerr << "Creating spring_error field in table nodes failed.\n";
+            cerr << "Creating spring_error field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -390,7 +390,7 @@ class DataStorage {
         layer_nodes_field_end_error.SetWidth(6);
         if (m_layer_nodes->CreateField(&layer_nodes_field_end_error)
                 != OGRERR_NONE) {
-            cerr << "Creating end_error field in table nodes failed.\n";
+            cerr << "Creating end_error field in table nodes failed." << endl;
             exit(1);
         }
 
@@ -398,13 +398,13 @@ class DataStorage {
         layer_nodes_field_way_error.SetWidth(6);
         if (m_layer_nodes->CreateField(&layer_nodes_field_way_error)
                 != OGRERR_NONE) {
-            cerr << "Creating way_error field in table nodes failed.\n";
+            cerr << "Creating way_error field in table nodes failed." << endl;
             exit(1);
         }
 
         ogrerr = m_layer_nodes->StartTransaction();
         if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating nodes table failed.\n";
+            cerr << "Creating nodes table failed." << endl;
             cerr << "OGRERR: " << ogrerr << endl;
             exit(1);
         }
@@ -567,7 +567,7 @@ public:
         feature->SetField("lastchange", 
                           get_timestamp(area.timestamp()).c_str());
         if (m_layer_polygons->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create polygon feature.\n";
+            cerr << "Failed to create polygon feature." << endl;
         }
         OGRFeature::DestroyFeature(feature);
     }
@@ -595,7 +595,7 @@ public:
         else
             feature->SetField("nowaterway_error", "false");
         if (m_layer_relations->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create relation feature.\n";
+            cerr << "Failed to create relation feature." << endl;
         }
         OGRFeature::DestroyFeature(feature);
     }
@@ -636,7 +636,7 @@ public:
         if (w > -1) feature->SetField("width", width2string(w).c_str());
 
         if (m_layer_ways->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create way feature.\n";
+            cerr << "Failed to create way feature." << endl;
         }
 
         remember_way(first_node, last_node, name, type);
@@ -683,7 +683,7 @@ public:
                           (sum->is_way_error()) ? "true" : "false");
 
         if (m_layer_nodes->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create node feature.\n";
+            cerr << "Failed to create node feature." << endl;
         } else {
             OGRFeature::DestroyFeature(feature);
         }
