@@ -28,17 +28,6 @@
 #include <google/sparse_hash_set>
 #include <google/sparse_hash_map>
 
-/***
- * Benchmark
- */
-#include "timer.h"
-timer t_total_pass4;
-timer t_inittree;
-timer t_treequery;
-timer t_geoscontains;
-timer t_createpolygons;
-timer t_indicatefp;
-
 #include "errorsum.hpp"
 #include "waterway.hpp"
 #include "waterpolygon.hpp"
@@ -57,18 +46,6 @@ typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type,
 typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type>
         location_handler_type;
 typedef geos::geom::LineString linestring_type;
-
-/***
- * Benchmark
- */
-void print_pass4_time() {
-    cout << "Pass4 (total):            " << t_total_pass4 << endl;
-    cout << "Create polygons:          " << t_createpolygons << endl;
-    cout << "   init tree:             " << t_inittree << endl;
-    cout << "Indicate false positives: " << t_indicatefp << endl;
-    cout << "   tree querry:           " << t_treequery << endl;
-    cout << "   geos conatins:         " << t_geoscontains << endl;
-}
 
 void print_help() {
     cout << "osmi [OPTIONS] INFILE OUTFILE\n\n"

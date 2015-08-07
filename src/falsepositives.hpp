@@ -114,9 +114,6 @@ public:
      */
     void check_area() {
         for (auto node : ds.error_map) {
-            { // Benchmark
-                t_treequery.start();
-            }
             osmium::Location location;
             osmium::object_id_type node_id = node.first;
             const geos::geom::Point *point = nullptr;
@@ -130,13 +127,7 @@ public:
             }
             vector<void *> results;
             ds.polygon_tree.query(point->getEnvelopeInternal(), results);
-            { // Benchmark
-                t_treequery.stop();
-            }
             if (results.size()) {
-                { // Benchmark
-                    t_geoscontains.start();
-                }
                 for (auto result : results) {
                     prepared_polygon_type *geos_polygon;
                     geos_polygon = static_cast<prepared_polygon_type*> (result);
@@ -145,9 +136,6 @@ public:
                         delete_error_node(node_id, sum);
                         break;
                     }
-                }
-                { // Benchmark
-                    t_geoscontains.stop();
                 }
             }
             delete point;

@@ -98,13 +98,7 @@ public:
                 OGRGeometryFactory::destroyGeometry(geom);
             }
             if (TagCheck::is_area_to_analyse(area)) {
-                { // Benchmark
-                    t_inittree.start();
-                }
                 insert_in_polygon_tree(area);
-                { // Benchmark
-                    t_inittree.stop();
-                }
             }
         }
     }
