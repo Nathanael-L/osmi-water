@@ -6,6 +6,8 @@
 #define DATASTORAGE_HPP_
 
 #include <math.h>
+#include <ogr_api.h>
+#include <ogrsf_frmts.h>
 #include <geos/index/strtree/STRtree.h>
 #include <geos/index/ItemVisitor.h>
 #include <geos/geom/prep/PreparedPolygon.h>
