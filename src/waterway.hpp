@@ -7,6 +7,7 @@
 #define WATERWAY_HPP_
 
 #include <osmium_geos_factory/geos_factory.hpp>
+#include <osmium/relations/relations_manager.hpp>
 
 #include "errorsum.hpp"
 #include "tagcheck.hpp"
@@ -28,10 +29,10 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type,
 typedef geos::geom::LineString linestring_type;
 
 class WaterwayCollector :
-        public osmium::relations::Collector<WaterwayCollector,
+        public osmium::relations::RelationsManager<WaterwayCollector,
                                             false, true, false> {
 
-    typedef typename osmium::relations::Collector<WaterwayCollector,
+    typedef typename osmium::relations::RelationsManager<WaterwayCollector,
                                               false, true, false>
         collector_type;
     
@@ -176,13 +177,13 @@ class WaterwayCollector :
         
         for (auto& member : relation.members()) {
             if (member_is_valid(member)) {
-                const osmium::Way& way = way_from(member);
+                const osmium::Way& way = *(get_member_way(member.ref()));
                 linestring_type *linestr = nullptr;
                 try {
                     linestr = osmium_geos_factory.create_linestring(way,
                             osmium::geom::use_nodes::unique,
                             osmium::geom::direction::forward).release();
-                } catch (osmium::geometry_error) {
+                } catch (osmium::geometry_error&) {
                     insert_way_error(way);
                     continue;
                 } catch (...) {
@@ -273,8 +274,7 @@ class WaterwayCollector :
         delete geos_geom;
     }
 
-    void handle_relation(const osmium::relations::RelationMeta& relation_meta) {
-        const osmium::Relation& relation = this->get_relation(relation_meta);
+    void handle_relation(const osmium::Relation& relation) {
         const osmium::object_id_type relation_id = relation.id();
         vector<geos::geom::Geometry *> *linestrings;
         linestrings = new vector<geos::geom::Geometry *>();
@@ -346,18 +346,12 @@ public:
         return member.type() == osmium::item_type::way;
     }
 
-    const osmium::Way& way_from(const osmium::RelationMember& member) {
-        size_t temp = this->get_offset(member.type(), member.ref());
-        osmium::memory::Buffer& mb = this->members_buffer();
-        return mb.get<const osmium::Way>(temp);
-    }
-
     /***
      * For the found relations, insert multilinestings into table relations and
      * linestrings into table ways.
      */
-    void complete_relation(const osmium::relations::RelationMeta& relation_meta) {
-        handle_relation(relation_meta);
+    void complete_relation(const osmium::Relation& relation) {
+        handle_relation(relation);
     }
 
     /***
@@ -373,10 +367,10 @@ public:
      * Insert waterways and relations of incomplete relations.
      */
     void ways_in_incomplete_relation() {
-        clean_assembled_relations();
-        for (auto relation_meta : relations()) {
-            handle_relation(relation_meta);
-        }
+        this->for_each_incomplete_relation([&](const osmium::relations::RelationHandle& handle){
+            const osmium::Relation& relation = *handle;
+            handle_relation(relation);
+        });
     }
 
     /***

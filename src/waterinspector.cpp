@@ -7,12 +7,15 @@
 
 #include <osmium/handler/node_locations_for_ways.hpp>
 #include <osmium/visitor.hpp>
+#include <osmium/area/multipolygon_manager.hpp>
+#include <osmium/area/assembler.hpp>
 #include <osmium/geom/factory.hpp>
 #include <osmium/osm/location.hpp>
 #include <osmium/osm/relation.hpp>
 #include <osmium/osm/tag.hpp>
 #include <osmium/tags/filter.hpp>
 #include <osmium/io/any_input.hpp>
+#include <osmium/io/file.hpp>
 #include <osmium/handler.hpp>
 #include <osmium/relations/collector.hpp>
 #include <osmium/memory/buffer.hpp>
@@ -30,7 +33,7 @@
 
 #include "errorsum.hpp"
 #include "waterway.hpp"
-#include "waterpolygon.hpp"
+//#include "waterpolygon.hpp"
 #include "tagcheck.hpp"
 #include "datastorage.hpp"
 #include "falsepositives.hpp"
@@ -102,23 +105,16 @@ int main(int argc, char* argv[]) {
     //location_handler_area.ignore_errors();
 
     osmium::area::Assembler::config_type assembler_config;
-    assembler_config.enable_debug_output(debug);
+    assembler_config.debug_level = debug;
     WaterwayCollector waterway_collector(location_handler, ds);
-    WaterpolygonCollector<osmium::area::Assembler> 
-            waterpolygon_collector(assembler_config);
+    osmium::area::MultipolygonManager<osmium::area::Assembler> waterpolygon_collector(assembler_config, TagCheck::build_waterpolygon_filter());
 
     /***
      * Pass 1: waterway_collector and waterpolygon_collector remember the ways
      * according to a relation.
      */
     cerr << "Pass 1..." << endl;
-    osmium::io::Reader reader1(input_filename,
-            osmium::osm_entity_bits::relation);
-    while (osmium::memory::Buffer buffer = reader1.read()) {
-        waterway_collector.read_relations(buffer.begin(), buffer.end());
-        waterpolygon_collector.read_relations(buffer.begin(), buffer.end());
-    }
-    reader1.close();
+    osmium::relations::read_relations(osmium::io::File(input_filename), waterway_collector, waterpolygon_collector);
     cerr << "Pass 1 done" << endl;
 
     /***
@@ -158,6 +154,5 @@ int main(int argc, char* argv[]) {
      */
     ds.insert_error_nodes(location_handler);
 
-    google::protobuf::ShutdownProtobufLibrary();
     cout << "ready" << endl;
 }

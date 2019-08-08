@@ -10,6 +10,7 @@
 
 #include <osmium/osm/tag.hpp>
 #include <osmium/tags/filter.hpp>
+#include <osmium/tags/tags_filter.hpp>
 
 
 using namespace std;
@@ -59,33 +60,13 @@ public:
         return false;
     }
 
-    static bool is_waterpolygon(const osmium::OSMObject &osm_object,
-                                bool is_relation) {
-        if (is_relation) {
-            const char* type = osm_object.tags().get_value_by_key("type");
-            if (!type) {
-                return false;
-            }
-            if (strcmp(type, "multipolygon")) {
-                return false;
-            }
-        }
-        const char* natural = osm_object.get_value_by_key("natural");
-        if ((natural) && (!strcmp(natural, "water"))) {
-            return true;
-        }
-        const char* waterway = osm_object.get_value_by_key("waterway");
-        if (waterway) {
-            return true;
-        }
-        const char* landuse = osm_object.get_value_by_key("landuse");
-        if ((landuse) && (!strcmp(landuse, "reservoir"))) {
-            return true;
-        }
-        if ((landuse) && (!strcmp(landuse, "basin"))) {
-            return true;
-        }
-        return false;
+    static osmium::TagsFilter build_waterpolygon_filter() {
+        osmium::TagsFilter filter{false};
+        filter.add_rule(true, osmium::TagMatcher{"natural", "water"});
+        filter.add_rule(true, osmium::TagMatcher{"waterway"});
+        filter.add_rule(true, osmium::TagMatcher{"landuse", "reservoir"});
+        filter.add_rule(true, osmium::TagMatcher{"landuse", "basin"});
+        return filter;
     }
 
     static bool has_waterway_tag(const osmium::OSMObject &osm_object) {
