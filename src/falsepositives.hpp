@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <osmium/geom/geos.hpp>
+#include <osmium_geos_factory/geos_factory.hpp>
 #include <geos/geom/MultiPolygon.h>
 #include <geos/geom/Point.h>
 #include <osmium/handler.hpp>
@@ -28,7 +29,7 @@ class IndicateFalsePositives: public osmium::handler::Handler {
 
     DataStorage &ds;
     location_handler_type &location_handler;
-    osmium::geom::GEOSFactory<> geos_factory;
+    osmium_geos_factory::GEOSFactory<> geos_factory;
 
     bool is_valid(const osmium::OSMObject& osm_object) {
         return TagCheck::is_way_to_analyse(osm_object);

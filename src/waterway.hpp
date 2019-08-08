@@ -6,6 +6,8 @@
 #ifndef WATERWAY_HPP_
 #define WATERWAY_HPP_
 
+#include <osmium_geos_factory/geos_factory.hpp>
+
 #include "errorsum.hpp"
 #include "tagcheck.hpp"
 #include "datastorage.hpp"
@@ -41,7 +43,7 @@ class WaterwayCollector :
     static constexpr size_t max_buffer_size_for_flush = 100 * 1024;
 
     DataStorage &ds;
-    osmium::geom::GEOSFactory<> osmium_geos_factory;
+    osmium_geos_factory::GEOSFactory<> osmium_geos_factory;
 
     OGRGeometry *geos2ogr(const geos::geom::Geometry *g)
     {
@@ -198,11 +200,10 @@ class WaterwayCollector :
                     contains_nowaterway_ways = true;
                 }
 
-                OGRGeometry *ogr_linestring = nullptr;
-                ogr_linestring = geos2ogr(linestr);
+                unique_ptr<OGRGeometry> ogr_linestring (geos2ogr(linestr));
 
                 try {
-                    ds.insert_way_feature(ogr_linestring, way, relation_id);
+                    ds.insert_way_feature(std::move(ogr_linestring), way, relation_id);
                 } catch (osmium::geometry_error&) {
                     cerr << "Inserting to table failed for way: "
                          << way.id() << endl;
@@ -211,7 +212,6 @@ class WaterwayCollector :
                          << way.id() << endl;;
                     cerr << "  Unexpected error" << endl;
                 }
-                OGRGeometryFactory::destroyGeometry(ogr_linestring);
             }
         }
     }
@@ -228,11 +228,10 @@ class WaterwayCollector :
         if (!(linestrings->size())) {
             return;
         }
-        const geos::geom::GeometryFactory geom_factory =
-                geos::geom::GeometryFactory();
+        geos::geom::GeometryFactory::unique_ptr geom_factory = geos::geom::GeometryFactory::create();
         geos::geom::GeometryCollection *geom_collection = nullptr;
         try {
-            geom_collection = geom_factory.createGeometryCollection(
+            geom_collection = geom_factory->createGeometryCollection(
                               linestrings);
         } catch (...) {
             cerr << "Failed to create geometry collection at relation: "
@@ -249,13 +248,10 @@ class WaterwayCollector :
             delete geom_collection;
             return;
         }
-        OGRGeometry *ogr_multilinestring = nullptr;
-        ogr_multilinestring = geos2ogr(geos_geom);
+        unique_ptr<OGRGeometry> ogr_multilinestring {geos2ogr(geos_geom)};
         if (!strcmp(ogr_multilinestring->getGeometryName(),"LINESTRING")) {
             try {
-                ogr_multilinestring =
-                        OGRGeometryFactory::forceToMultiLineString(
-                        ogr_multilinestring);
+                ogr_multilinestring.reset(OGRGeometryFactory::forceToMultiLineString(ogr_multilinestring.get()));
             } catch (...) {
                 delete geom_collection;
                 delete geos_geom;
@@ -263,21 +259,18 @@ class WaterwayCollector :
             }
         }
         try {
-            ds.insert_relation_feature(ogr_multilinestring, relation,
+            ds.insert_relation_feature(std::move(ogr_multilinestring), relation,
                                        contains_nowaterway_ways);
         } catch (osmium::geometry_error&) {
-            OGRGeometryFactory::destroyGeometry(ogr_multilinestring);
             cerr << "Inserting to table failed for relation: "
                  << relation_id << endl;
         } catch (...) {
-            OGRGeometryFactory::destroyGeometry(ogr_multilinestring);
             cerr << "Inserting to table failed for relation: "
                  << relation_id << endl;
             cerr << "  Unexpected error" << endl;
         }
         delete geom_collection;
         delete geos_geom;
-        OGRGeometryFactory::destroyGeometry(ogr_multilinestring);
     }
 
     void handle_relation(const osmium::relations::RelationMeta& relation_meta) {
@@ -296,11 +289,11 @@ class WaterwayCollector :
 
     void create_single_way(const osmium::Way &way) {
         osmium::geom::OGRFactory<> ogr_factory;
-        OGRLineString *linestring = nullptr;
+        unique_ptr<OGRGeometry> linestring {nullptr};
         try {
             linestring = ogr_factory.create_linestring(way,
                          osmium::geom::use_nodes::unique,
-                         osmium::geom::direction::forward).release();
+                         osmium::geom::direction::forward);
         } catch (osmium::geometry_error) {
             insert_way_error(way);
             return;
@@ -311,7 +304,7 @@ class WaterwayCollector :
         }
 
         try {
-            ds.insert_way_feature(linestring, way, 0);
+            ds.insert_way_feature(std::move(linestring), way, 0);
         } catch (osmium::geometry_error&) {
             cerr << "Inserting to table failed for way: "
                  << way.id() << endl;
@@ -320,7 +313,6 @@ class WaterwayCollector :
                  << way.id() << endl;
             cerr << "  Unexpected error" << endl;
         }
-        delete linestring;
     }
 
 public:
