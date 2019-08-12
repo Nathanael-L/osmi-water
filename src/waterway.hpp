@@ -331,19 +331,18 @@ public:
     ~WaterwayCollector() {
     }
 
-    bool keep_relation(const osmium::Relation& relation) const {
+    bool new_relation(const osmium::Relation& relation) const {
         bool is_relation = true;
         return TagCheck::is_waterway(relation, is_relation);
+    }
+
+    bool new_member(const osmium::Relation& /*relation*/, const osmium::RelationMember& member, std::size_t /*n*/) const {
+        return member.type() == osmium::item_type::way;
     }
 
     bool way_is_valid(const osmium::Way& way) {
         bool is_relation = false;
         return TagCheck::is_waterway(way, is_relation);
-    }
-
-    bool keep_member(const osmium::relations::RelationMeta&,
-                     const osmium::RelationMember& member) const {
-        return member.type() == osmium::item_type::way;
     }
 
     bool member_is_valid(const osmium::RelationMember& member) {
