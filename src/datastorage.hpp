@@ -6,8 +6,6 @@
 #define DATASTORAGE_HPP_
 
 #include <math.h>
-#include <ogr_api.h>
-#include <ogrsf_frmts.h>
 #include <geos/index/strtree/STRtree.h>
 #include <geos/index/ItemVisitor.h>
 #include <geos/geom/prep/PreparedPolygon.h>
@@ -39,12 +37,12 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type,
 
 class DataStorage {
     string output_filename;
-    gdalcpp::Dataset m_data_source;
-    gdalcpp::Layer m_layer_polygons;
-    gdalcpp::Layer m_layer_relations;
-    gdalcpp::Layer m_layer_ways;
-    gdalcpp::Layer m_layer_nodes;
     osmium::geom::OGRFactory<> m_ogr_factory;
+    unique_ptr<gdalcpp::Dataset> m_data_source;
+    unique_ptr<gdalcpp::Layer> m_layer_polygons;
+    unique_ptr<gdalcpp::Layer> m_layer_relations;
+    unique_ptr<gdalcpp::Layer> m_layer_ways;
+    unique_ptr<gdalcpp::Layer> m_layer_nodes;
 
     /***
      * Structure to remember the waterways according to the firstnodes and
@@ -86,50 +84,55 @@ class DataStorage {
     vector<WaterWay*> waterways;
 
     void init_db() {
-        CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "FALSE");
+        CPLSetConfigOption("OGR_SQLITE_PRAGMA", "journal_mode=OFF,TEMP_STORE=MEMORY,temp_store=memory,LOCKING_MODE=EXCLUSIVE");
+        CPLSetConfigOption("OGR_SQLITE_CACHE", "600");
+        CPLSetConfigOption("OGR_SQLITE_JOURNAL", "OFF");
+        CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
+
+        m_data_source = unique_ptr<gdalcpp::Dataset>{new gdalcpp::Dataset("SQlite", output_filename, gdalcpp::SRS(4326), {"SPATIALITE=YES"})};
+        m_layer_polygons = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "polygons", wkbMultiPolygon, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_relations = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "relations", wkbMultiLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_ways = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "ways", wkbLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_nodes = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "nodes", wkbPoint, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
 
         /*---- TABLE POLYGONS ----*/
-        m_layer_polygons.add_field("way_id", OFTInteger, 12);
-        m_layer_polygons.add_field("relation_id", OFTInteger, 12);
-        m_layer_polygons.add_field("type", OFTString, 10);
-        m_layer_polygons.add_field("name", OFTString, 30);
-        m_layer_polygons.add_field("lastchange", OFTString, 20);
-        m_layer_polygons.add_field("error", OFTString, 6);
-        m_layer_polygons.start_transaction();
+        m_layer_polygons->add_field("way_id", OFTInteger, 12);
+        m_layer_polygons->add_field("relation_id", OFTInteger, 12);
+        m_layer_polygons->add_field("type", OFTString, 10);
+        m_layer_polygons->add_field("name", OFTString, 30);
+        m_layer_polygons->add_field("lastchange", OFTString, 20);
+        m_layer_polygons->add_field("error", OFTString, 6);
 
         /*---- TABLE RELATIONS ----*/
-        m_layer_relations.add_field("relation_id", OFTInteger, 12);
-        m_layer_relations.add_field("type", OFTString, 10);
-        m_layer_relations.add_field("name", OFTString, 30);
-        m_layer_relations.add_field("lastchange", OFTString, 20);
-        m_layer_relations.add_field("nowaterway_error", OFTString, 6);
-        m_layer_relations.add_field("tagging_error", OFTString, 6);
-        m_layer_relations.start_transaction();
+        m_layer_relations->add_field("relation_id", OFTInteger, 12);
+        m_layer_relations->add_field("type", OFTString, 10);
+        m_layer_relations->add_field("name", OFTString, 30);
+        m_layer_relations->add_field("lastchange", OFTString, 20);
+        m_layer_relations->add_field("nowaterway_error", OFTString, 6);
+        m_layer_relations->add_field("tagging_error", OFTString, 6);
 
         /*---- TABLE WAYS ----*/
-        m_layer_ways.add_field("way_id", OFTInteger, 12);
-        m_layer_ways.add_field("type", OFTString, 10);
-        m_layer_ways.add_field("name", OFTString, 30);
-        m_layer_ways.add_field("firstnode", OFTString, 11);
-        m_layer_ways.add_field("lastnode", OFTString, 11);
-        m_layer_ways.add_field("relation_id", OFTInteger, 10);
-        m_layer_ways.add_field("width", OFTString, 10);
-        m_layer_ways.add_field("lastchange", OFTString, 20);
-        m_layer_ways.add_field("construction", OFTString, 7);
-        m_layer_ways.add_field("with_error", OFTString, 6);
-        m_layer_ways.add_field("tagging_error", OFTString, 6);
-        m_layer_ways.start_transaction();
+        m_layer_ways->add_field("way_id", OFTInteger, 12);
+        m_layer_ways->add_field("type", OFTString, 10);
+        m_layer_ways->add_field("name", OFTString, 30);
+        m_layer_ways->add_field("firstnode", OFTString, 11);
+        m_layer_ways->add_field("lastnode", OFTString, 11);
+        m_layer_ways->add_field("relation_id", OFTInteger, 10);
+        m_layer_ways->add_field("width", OFTString, 10);
+        m_layer_ways->add_field("lastchange", OFTString, 20);
+        m_layer_ways->add_field("construction", OFTString, 7);
+        m_layer_ways->add_field("width_error", OFTString, 6);
+        m_layer_ways->add_field("tagging_error", OFTString, 6);
 
         /*---- TABLE NODES ----*/
-        m_layer_nodes.add_field("node_id", OFTString, 12);
-        m_layer_nodes.add_field("specific", OFTString, 11);
-        m_layer_nodes.add_field("direction_error", OFTString, 6);
-        m_layer_nodes.add_field("name_error", OFTString, 6);
-        m_layer_nodes.add_field("type_error", OFTString, 6);
-        m_layer_nodes.add_field("spring_error", OFTString, 6);
-        m_layer_nodes.add_field("end_error", OFTString, 6);
-        m_layer_nodes.add_field("way_error", OFTString, 6);
-        m_layer_nodes.start_transaction();
+        m_layer_nodes->add_field("node_id", OFTString, 12);
+        m_layer_nodes->add_field("specific", OFTString, 11);
+        m_layer_nodes->add_field("direction_error", OFTString, 6);
+        m_layer_nodes->add_field("name_error", OFTString, 6);
+        m_layer_nodes->add_field("type_error", OFTString, 6);
+        m_layer_nodes->add_field("spring_error", OFTString, 6);
+        m_layer_nodes->add_field("end_error", OFTString, 6);
+        m_layer_nodes->add_field("way_error", OFTString, 6);
     }
 
     const string get_timestamp(osmium::Timestamp timestamp) {
@@ -238,11 +241,6 @@ public:
 
     explicit DataStorage(string outfile) :
             output_filename(outfile),
-            m_data_source("SQlite", output_filename, gdalcpp::SRS(4326), {"SPATIALITE=TRUE"}),
-            m_layer_polygons(m_data_source, "polygons", wkbMultiPolygon),
-            m_layer_relations(m_data_source, "relations", wkbMultiLineString),
-            m_layer_ways(m_data_source, "ways", wkbLineString),
-            m_layer_nodes(m_data_source, "nodes", wkbPoint),
             m_ogr_factory() {
         init_db();
         node_map.set_deleted_key(-1);
@@ -252,11 +250,6 @@ public:
     }
 
     ~DataStorage() {
-        m_layer_polygons.commit_transaction();
-        m_layer_relations.commit_transaction();
-        m_layer_ways.commit_transaction();
-        m_layer_nodes.commit_transaction();
-
         destroy_polygons();
         for (auto wway : waterways) {
             delete wway;
@@ -278,7 +271,7 @@ public:
         const char *name = TagCheck::get_name(area);
 
         try {
-            gdalcpp::Feature feature(m_layer_polygons, std::move(geom));
+            gdalcpp::Feature feature(*m_layer_polygons, std::move(geom));
             feature.set_field("way_id", static_cast<int>(way_id));
             feature.set_field("relation_id", static_cast<int>(relation_id));
             feature.set_field("type", type);
@@ -301,7 +294,7 @@ public:
         const char *name = TagCheck::get_name(relation);
 
         try {
-            gdalcpp::Feature feature(m_layer_relations, std::move(geom));
+            gdalcpp::Feature feature(*m_layer_relations, std::move(geom));
             feature.set_field("relation_id", static_cast<int>(relation.id()));
             feature.set_field("type", type);
             feature.set_field("name", name);
@@ -336,13 +329,13 @@ public:
         sprintf(last_node_chr, "%ld", last_node);
 
         try {
-            gdalcpp::Feature feature(m_layer_ways, std::move(geom));
-            feature.set_field("way_id", static_cast<int>(way.id()));
-            feature.set_field("type", type);
-            feature.set_field("name", name);
-            feature.set_field("firstnode", first_node_chr);
-            feature.set_field("lastnode", last_node_chr);
-            feature.set_field("relation_id", static_cast<int>(rel_id));
+            gdalcpp::Feature feature(*m_layer_ways, std::move(geom));
+            feature.set_field(0, static_cast<int>(way.id()));
+            feature.set_field(1, type);
+            feature.set_field(2, name);
+            feature.set_field(3, first_node_chr);
+            feature.set_field(4, last_node_chr);
+            feature.set_field(5, static_cast<int>(rel_id));
             feature.set_field("lastchange", get_timestamp(way.timestamp()).c_str());
             feature.set_field("construction", construction);
             feature.set_field("width_error", (width_err) ? "true" : "false");
@@ -358,10 +351,9 @@ public:
     void insert_node_feature(osmium::Location location,
                              osmium::object_id_type node_id,
                              ErrorSum *sum) {
-        osmium::geom::OGRFactory<> ogr_factory;
         std::unique_ptr<OGRPoint> point;
         try {
-            point = ogr_factory.create_point(location);
+            point = m_ogr_factory.create_point(location);
         } catch (osmium::geometry_error) {
             cerr << "Error at node: " << node_id << endl;
             return;
@@ -371,7 +363,7 @@ public:
             return;
         }
 
-        gdalcpp::Feature feature {m_layer_nodes, std::move(point)};
+        gdalcpp::Feature feature {*m_layer_nodes, std::move(point)};
 
         char id_chr[12];
         sprintf(id_chr, "%ld", node_id);
