@@ -10,6 +10,10 @@
 #include <geos/index/ItemVisitor.h>
 #include <geos/geom/prep/PreparedPolygon.h>
 
+#include <memory>
+#include <vector>
+
+#include <gdalcpp.hpp>
 
 using namespace std;
 
@@ -25,14 +29,20 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type,
                                               index_neg_type>
         location_handler_type;
 
+//struct OGRGeometryDeleter {
+//  void operator()(OGRGeometry* geom) const {
+//    OGRGeometryFactory::destroyGeometry(geom);
+//  }
+//};
+
 class DataStorage {
-    OGRDataSource* m_data_source;
-    OGRLayer* m_layer_polygons;
-    OGRLayer* m_layer_relations;
-    OGRLayer* m_layer_ways;
-    OGRLayer* m_layer_nodes;
-    osmium::geom::OGRFactory<> m_ogr_factory;
     string output_filename;
+    osmium::geom::OGRFactory<> m_ogr_factory;
+    unique_ptr<gdalcpp::Dataset> m_data_source;
+    unique_ptr<gdalcpp::Layer> m_layer_polygons;
+    unique_ptr<gdalcpp::Layer> m_layer_relations;
+    unique_ptr<gdalcpp::Layer> m_layer_ways;
+    unique_ptr<gdalcpp::Layer> m_layer_nodes;
 
     /***
      * Structure to remember the waterways according to the firstnodes and
@@ -74,340 +84,55 @@ class DataStorage {
     vector<WaterWay*> waterways;
 
     void init_db() {
+        CPLSetConfigOption("OGR_SQLITE_PRAGMA", "journal_mode=OFF,TEMP_STORE=MEMORY,temp_store=memory,LOCKING_MODE=EXCLUSIVE");
+        CPLSetConfigOption("OGR_SQLITE_CACHE", "600");
+        CPLSetConfigOption("OGR_SQLITE_JOURNAL", "OFF");
         CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
-        OGRRegisterAll();
 
-        OGRSFDriver* driver;
-        driver = OGRSFDriverRegistrar::GetRegistrar()->GetDriverByName(
-            "SQLite");
-
-        if (!driver) {
-            cerr << "SQLite" << " driver not available." << endl;
-            exit(1);
-        }
-
-        CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "FALSE");
-        const char* options[] = { "SPATIALITE=TRUE", nullptr };
-        m_data_source = driver->CreateDataSource(output_filename.c_str(),
-                                                 const_cast<char**>(options));
-        if (!m_data_source) {
-            cerr << "Creation of output file failed." << endl;
-            exit(1);
-        }
-
-        OGRSpatialReference sparef;
-        sparef.SetWellKnownGeogCS("WGS84");
+        m_data_source = unique_ptr<gdalcpp::Dataset>{new gdalcpp::Dataset("SQlite", output_filename, gdalcpp::SRS(4326), {"SPATIALITE=YES"})};
+        m_layer_polygons = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "polygons", wkbMultiPolygon, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_relations = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "relations", wkbMultiLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_ways = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "ways", wkbLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_nodes = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "nodes", wkbPoint, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
 
         /*---- TABLE POLYGONS ----*/
-        m_layer_polygons = m_data_source->CreateLayer("polygons", &sparef,
-                                                      wkbMultiPolygon, nullptr);
-        if (!m_layer_polygons) {
-            cerr << "Layer polygons creation failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_polygons_field_way_id("way_id", OFTInteger);
-        layer_polygons_field_way_id.SetWidth(12);
-        if (m_layer_polygons->CreateField(&layer_polygons_field_way_id)
-                != OGRERR_NONE) {
-            cerr << "Creating way_id field failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_polygons_field_relation_id("relation_id", 
-                                                      OFTInteger);
-        layer_polygons_field_relation_id.SetWidth(12);
-        if (m_layer_polygons->CreateField(&layer_polygons_field_relation_id)
-                != OGRERR_NONE) {
-            cerr << "Creating relation_id field failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_polygons_field_type("type", OFTString);
-        layer_polygons_field_type.SetWidth(10);
-        if (m_layer_polygons->CreateField(&layer_polygons_field_type)
-                != OGRERR_NONE) {
-            cerr << "Creating type field failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_polygons_field_name("name", OFTString);
-        layer_polygons_field_name.SetWidth(30);
-        if (m_layer_polygons->CreateField(&layer_polygons_field_name)
-                != OGRERR_NONE) {
-            cerr << "Creating name field failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_polygons_field_lastchange("lastchange", OFTString);
-        layer_polygons_field_lastchange.SetWidth(20);
-        if (m_layer_polygons->CreateField(&layer_polygons_field_lastchange)
-                != OGRERR_NONE) {
-            cerr << "Creating lastchange field failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_polygons_field_error("error", OFTString);
-        layer_polygons_field_error.SetWidth(6);
-        if (m_layer_polygons->CreateField(&layer_polygons_field_error)
-                != OGRERR_NONE) {
-            cerr << "Creating error field failed." << endl;
-            exit(1);
-        }
-
-        int ogrerr = m_layer_polygons->StartTransaction();
-        if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating polygons table failed." << endl;
-            cerr << "OGRERR: " << ogrerr << endl;
-            exit(1);
-        }
-
+        m_layer_polygons->add_field("way_id", OFTInteger, 12);
+        m_layer_polygons->add_field("relation_id", OFTInteger, 12);
+        m_layer_polygons->add_field("type", OFTString, 10);
+        m_layer_polygons->add_field("name", OFTString, 30);
+        m_layer_polygons->add_field("lastchange", OFTString, 20);
+        m_layer_polygons->add_field("error", OFTString, 6);
 
         /*---- TABLE RELATIONS ----*/
-        m_layer_relations = m_data_source->CreateLayer("relations", &sparef,
-                                                       wkbMultiLineString,
-                                                       nullptr);
-        if (!m_layer_relations) {
-            cerr << "Layer relations creation failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_relations_field_id("relation_id", OFTInteger);
-        layer_relations_field_id.SetWidth(12);
-        if (m_layer_relations->CreateField(&layer_relations_field_id)
-                != OGRERR_NONE) {
-            cerr << "Creating relation_id field in table realtions failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_relations_field_type("type", OFTString);
-        layer_relations_field_type.SetWidth(10);
-        if (m_layer_relations->CreateField(&layer_relations_field_type)
-                != OGRERR_NONE) {
-            cerr << "Creating type field in table realtions failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_relations_field_name("name", OFTString);
-        layer_relations_field_type.SetWidth(30);
-        if (m_layer_relations->CreateField(&layer_relations_field_name)
-                != OGRERR_NONE) {
-            cerr << "Creating name field in table realtions failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_relations_field_lastchange("lastchange", OFTString);
-        layer_relations_field_lastchange.SetWidth(20);
-        if (m_layer_relations->CreateField(&layer_relations_field_lastchange)
-                != OGRERR_NONE) {
-            cerr << "Creating lastchange field in table realtions failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_relations_field_nowaterway_error("nowaterway_error",
-                                                            OFTString);
-        layer_relations_field_type.SetWidth(6);
-        if (m_layer_relations->CreateField(
-                &layer_relations_field_nowaterway_error)
-                != OGRERR_NONE) {
-            cerr << "Creating nowaterway_error field in table realtions failed."
-                 << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_relations_field_tagging_error("tagging_error",
-                                                         OFTString);
-        layer_relations_field_type.SetWidth(6);
-        if (m_layer_relations->CreateField(&layer_relations_field_tagging_error)
-                != OGRERR_NONE) {
-            cerr << "Creating tagging_error field in table realtions failed." << endl;
-            exit(1);
-        }
-
-        ogrerr = m_layer_relations->StartTransaction();
-        if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating relations table failed." << endl;
-            cerr << "OGRERR: " << ogrerr << endl;
-            exit(1);
-        }
+        m_layer_relations->add_field("relation_id", OFTInteger, 12);
+        m_layer_relations->add_field("type", OFTString, 10);
+        m_layer_relations->add_field("name", OFTString, 30);
+        m_layer_relations->add_field("lastchange", OFTString, 20);
+        m_layer_relations->add_field("nowaterway_error", OFTString, 6);
+        m_layer_relations->add_field("tagging_error", OFTString, 6);
 
         /*---- TABLE WAYS ----*/
-        m_layer_ways = m_data_source->CreateLayer("ways", &sparef,
-                                                  wkbLineString, nullptr);
-        if (!m_layer_ways) {
-            cerr << "Layer ways creation in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_id("way_id", OFTInteger);
-        layer_ways_field_id.SetWidth(12);
-        if (m_layer_ways->CreateField(&layer_ways_field_id) != OGRERR_NONE) {
-            cerr << "Creating way_id field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_type("type", OFTString);
-        layer_ways_field_type.SetWidth(10);
-        if (m_layer_ways->CreateField(&layer_ways_field_type) != OGRERR_NONE) {
-            cerr << "Creating type field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_name("name", OFTString);
-        layer_ways_field_name.SetWidth(30);
-        if (m_layer_ways->CreateField(&layer_ways_field_name) != OGRERR_NONE) {
-            cerr << "Creating name field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_first_node("firstnode", OFTString);
-        layer_ways_field_first_node.SetWidth(11);
-        if (m_layer_ways->CreateField(&layer_ways_field_first_node)
-                != OGRERR_NONE) {
-            cerr << "Creating firstnode field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_last_node("lastnode", OFTString);
-        layer_ways_field_last_node.SetWidth(11);
-        if (m_layer_ways->CreateField(&layer_ways_field_last_node)
-                != OGRERR_NONE) {
-            cerr << "Creating lastnode field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_relation("relation_id", OFTInteger);
-        layer_ways_field_relation.SetWidth(10);
-        if (m_layer_ways->CreateField(&layer_ways_field_relation)
-                != OGRERR_NONE) {
-            cerr << "Creating relation_id field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_width("width", OFTString);
-        layer_ways_field_width.SetWidth(10);
-        if (m_layer_ways->CreateField(&layer_ways_field_width) != OGRERR_NONE) {
-            cerr << "Creating width field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_lastchange("lastchange", OFTString);
-        layer_ways_field_lastchange.SetWidth(20);
-        if (m_layer_ways->CreateField(&layer_ways_field_lastchange)
-                != OGRERR_NONE) {
-            cerr << "Creating lastchange field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_construction("construction", OFTString);
-        layer_ways_field_construction.SetWidth(7);
-        if (m_layer_ways->CreateField(&layer_ways_field_construction)
-                != OGRERR_NONE) {
-            cerr << "Creating construction field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_width_error("width_error", OFTString);
-        layer_ways_field_width_error.SetWidth(6);
-        if (m_layer_ways->CreateField(&layer_ways_field_width_error)
-                != OGRERR_NONE) {
-            cerr << "Creating width_error field in table ways failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_ways_field_tagging_error("tagging_error", OFTString);
-        layer_ways_field_type.SetWidth(6);
-        if (m_layer_ways->CreateField(&layer_ways_field_tagging_error)
-                != OGRERR_NONE) {
-            cerr << "Creating tagging_error field in table ways failed." << endl;
-            exit(1);
-        }
-
-        ogrerr = m_layer_ways->StartTransaction();
-        if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating ways table failed." << endl;
-            cerr << "OGRERR: " << ogrerr << endl;
-            exit(1);
-        }
+        m_layer_ways->add_field("way_id", OFTInteger, 12);
+        m_layer_ways->add_field("type", OFTString, 10);
+        m_layer_ways->add_field("name", OFTString, 30);
+        m_layer_ways->add_field("firstnode", OFTString, 11);
+        m_layer_ways->add_field("lastnode", OFTString, 11);
+        m_layer_ways->add_field("relation_id", OFTInteger, 10);
+        m_layer_ways->add_field("width", OFTString, 10);
+        m_layer_ways->add_field("lastchange", OFTString, 20);
+        m_layer_ways->add_field("construction", OFTString, 7);
+        m_layer_ways->add_field("width_error", OFTString, 6);
+        m_layer_ways->add_field("tagging_error", OFTString, 6);
 
         /*---- TABLE NODES ----*/
-        m_layer_nodes = m_data_source->CreateLayer("nodes", &sparef,
-                                                   wkbPoint, nullptr);
-        if (!m_layer_nodes) {
-            cerr << "Layer nodes creation failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_id("node_id", OFTString);
-        layer_nodes_field_id.SetWidth(12);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_id) != OGRERR_NONE) {
-            cerr << "Creating node_id field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_specific("specific", OFTString);
-        layer_nodes_field_specific.SetWidth(11);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_specific)
-                != OGRERR_NONE) {
-            cerr << "Creating id field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_direction_error("direction_error",
-                                                       OFTString);
-        layer_nodes_field_direction_error.SetWidth(6);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_direction_error)
-                != OGRERR_NONE) {
-            cerr << "Creating direction_error field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_name_error("name_error", OFTString);
-        layer_nodes_field_name_error.SetWidth(6);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_name_error)
-                != OGRERR_NONE) {
-            cerr << "Creating name_error field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_type_error("type_error", OFTString);
-        layer_nodes_field_type_error.SetWidth(6);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_type_error)
-                != OGRERR_NONE) {
-            cerr << "Creating type_error field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_spring_error("spring_error", OFTString);
-        layer_nodes_field_spring_error.SetWidth(6);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_spring_error)
-                != OGRERR_NONE) {
-            cerr << "Creating spring_error field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_end_error("end_error", OFTString);
-        layer_nodes_field_end_error.SetWidth(6);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_end_error)
-                != OGRERR_NONE) {
-            cerr << "Creating end_error field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        OGRFieldDefn layer_nodes_field_way_error("way_error", OFTString);
-        layer_nodes_field_way_error.SetWidth(6);
-        if (m_layer_nodes->CreateField(&layer_nodes_field_way_error)
-                != OGRERR_NONE) {
-            cerr << "Creating way_error field in table nodes failed." << endl;
-            exit(1);
-        }
-
-        ogrerr = m_layer_nodes->StartTransaction();
-        if (ogrerr != OGRERR_NONE) {
-            cerr << "Creating nodes table failed." << endl;
-            cerr << "OGRERR: " << ogrerr << endl;
-            exit(1);
-        }
+        m_layer_nodes->add_field("node_id", OFTString, 12);
+        m_layer_nodes->add_field("specific", OFTString, 11);
+        m_layer_nodes->add_field("direction_error", OFTString, 6);
+        m_layer_nodes->add_field("name_error", OFTString, 6);
+        m_layer_nodes->add_field("type_error", OFTString, 6);
+        m_layer_nodes->add_field("spring_error", OFTString, 6);
+        m_layer_nodes->add_field("end_error", OFTString, 6);
+        m_layer_nodes->add_field("way_error", OFTString, 6);
     }
 
     const string get_timestamp(osmium::Timestamp timestamp) {
@@ -515,7 +240,8 @@ public:
     geos::index::strtree::STRtree polygon_tree;
 
     explicit DataStorage(string outfile) :
-            output_filename(outfile) {
+            output_filename(outfile),
+            m_ogr_factory() {
         init_db();
         node_map.set_deleted_key(-1);
         error_map.set_deleted_key(-1);
@@ -524,20 +250,13 @@ public:
     }
 
     ~DataStorage() {
-        m_layer_polygons->CommitTransaction();
-        m_layer_relations->CommitTransaction();
-        m_layer_ways->CommitTransaction();
-        m_layer_nodes->CommitTransaction();
-
-        OGRDataSource::DestroyDataSource(m_data_source);
-        OGRCleanupAll();
         destroy_polygons();
         for (auto wway : waterways) {
             delete wway;
         }
     }
 
-    void insert_polygon_feature(OGRGeometry *geom, const osmium::Area &area) {
+    void insert_polygon_feature(unique_ptr<OGRMultiPolygon>&& geom, const osmium::Area &area) {
         osmium::object_id_type way_id;
         osmium::object_id_type relation_id;
         if (area.from_way()) {
@@ -551,56 +270,47 @@ public:
         const char *type = TagCheck::get_polygon_type(area);
         const char *name = TagCheck::get_name(area);
 
-        OGRFeature *feature;
-        feature = OGRFeature::CreateFeature(m_layer_polygons->GetLayerDefn());
-        if (feature->SetGeometry(geom) != OGRERR_NONE) {
+        try {
+            gdalcpp::Feature feature(*m_layer_polygons, std::move(geom));
+            feature.set_field("way_id", static_cast<int>(way_id));
+            feature.set_field("relation_id", static_cast<int>(relation_id));
+            feature.set_field("type", type);
+            feature.set_field("name", name);
+            feature.set_field("lastchange",
+                              get_timestamp(area.timestamp()).c_str());
+            feature.add_to_layer();
+        } catch (osmium::geometry_error& err) {
             cerr << "Failed to create geometry feature for polygon of ";
             if (area.from_way()) cerr << "way: ";
             else cerr << "relation: ";
             cerr << area.orig_id() << endl;
         }
-
-        feature->SetField("way_id", static_cast<int>(way_id));
-        feature->SetField("relation_id", static_cast<int>(relation_id));
-        feature->SetField("type", type);
-        feature->SetField("name", name);
-        feature->SetField("lastchange", 
-                          get_timestamp(area.timestamp()).c_str());
-        if (m_layer_polygons->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create polygon feature." << endl;
-        }
-        OGRFeature::DestroyFeature(feature);
     }
 
-    void insert_relation_feature(OGRGeometry *geom,
+    void insert_relation_feature(unique_ptr<OGRGeometry>&& geom,
                                  const osmium::Relation &relation,
                                  bool contains_nowaterway) {
         const char *type = TagCheck::get_way_type(relation);
         const char *name = TagCheck::get_name(relation);
 
-        OGRFeature *feature;
-        feature = OGRFeature::CreateFeature(m_layer_relations->GetLayerDefn());
-        if (feature->SetGeometry(geom) != OGRERR_NONE) {
-            cerr << "Failed to create geometry feature for relation: "
-                 << relation.id() << endl;
+        try {
+            gdalcpp::Feature feature(*m_layer_relations, std::move(geom));
+            feature.set_field("relation_id", static_cast<int>(relation.id()));
+            feature.set_field("type", type);
+            feature.set_field("name", name);
+            feature.set_field("lastchange",
+                              get_timestamp(relation.timestamp()).c_str());
+            if (contains_nowaterway)
+                feature.set_field("nowaterway_error", "true");
+            else
+                feature.set_field("nowaterway_error", "false");
+            feature.add_to_layer();
+        } catch (osmium::geometry_error& err) {
+            cerr << "Failed to create relation feature:" << err.what() << "\n";
         }
-
-        feature->SetField("relation_id", static_cast<int>(relation.id()));
-        feature->SetField("type", type);
-        feature->SetField("name", name);
-        feature->SetField("lastchange",
-                          get_timestamp(relation.timestamp()).c_str());
-        if (contains_nowaterway)
-            feature->SetField("nowaterway_error", "true");
-        else
-            feature->SetField("nowaterway_error", "false");
-        if (m_layer_relations->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create relation feature." << endl;
-        }
-        OGRFeature::DestroyFeature(feature);
     }
 
-    void insert_way_feature(OGRGeometry *geom,
+    void insert_way_feature(unique_ptr<OGRGeometry>&& geom,
                             const osmium::Way &way,
                             osmium::object_id_type rel_id) {
         const char *type = TagCheck::get_way_type(way);
@@ -618,106 +328,63 @@ public:
         sprintf(first_node_chr, "%ld", first_node);
         sprintf(last_node_chr, "%ld", last_node);
 
-        OGRFeature *feature;
-        feature = OGRFeature::CreateFeature(m_layer_ways->GetLayerDefn());
-        if (feature->SetGeometry(geom) != OGRERR_NONE) {
+        try {
+            gdalcpp::Feature feature(*m_layer_ways, std::move(geom));
+            feature.set_field(0, static_cast<int>(way.id()));
+            feature.set_field(1, type);
+            feature.set_field(2, name);
+            feature.set_field(3, first_node_chr);
+            feature.set_field(4, last_node_chr);
+            feature.set_field(5, static_cast<int>(rel_id));
+            feature.set_field("lastchange", get_timestamp(way.timestamp()).c_str());
+            feature.set_field("construction", construction);
+            feature.set_field("width_error", (width_err) ? "true" : "false");
+            feature.add_to_layer();
+        } catch (osmium::geometry_error& err) {
             cerr << "Failed to create geometry feature for way: "
                  << way.id() << endl;
         }
-        feature->SetField("way_id", static_cast<int>(way.id()));
-        feature->SetField("type", type);
-        feature->SetField("name", name);
-        feature->SetField("firstnode", first_node_chr);
-        feature->SetField("lastnode", last_node_chr);
-        feature->SetField("relation_id", static_cast<int>(rel_id));
-        feature->SetField("lastchange", get_timestamp(way.timestamp()).c_str());
-        feature->SetField("construction", construction);
-        feature->SetField("width_error", (width_err) ? "true" : "false");
-        if (w > -1) feature->SetField("width", width2string(w).c_str());
-
-        if (m_layer_ways->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create way feature." << endl;
-        }
 
         remember_way(first_node, last_node, name, type);
-
-        OGRFeature::DestroyFeature(feature);
     }
 
     void insert_node_feature(osmium::Location location,
                              osmium::object_id_type node_id,
                              ErrorSum *sum) {
-        osmium::geom::OGRFactory<> ogr_factory;
-        OGRFeature *feature;
-        feature = OGRFeature::CreateFeature(m_layer_nodes->GetLayerDefn());
-        OGRPoint *point = nullptr;
+        std::unique_ptr<OGRPoint> point;
         try {
-             point = ogr_factory.create_point(location).release();
+            point = m_ogr_factory.create_point(location);
         } catch (osmium::geometry_error) {
             cerr << "Error at node: " << node_id << endl;
+            return;
         } catch (...) {
             cerr << "Error at node: " << node_id << endl 
                  << "Unexpected error" << endl;
+            return;
         }
+
+        gdalcpp::Feature feature {*m_layer_nodes, std::move(point)};
+
         char id_chr[12];
         sprintf(id_chr, "%ld", node_id);
 
-        if ((point) && (feature->SetGeometry(point) != OGRERR_NONE)) {
-            cerr << "Failed to create geometry feature for node: "
-                 << node_id << endl;
-        }
-        feature->SetField("node_id", id_chr);
-        if (sum->is_rivermouth()) feature->SetField("specific", "rivermouth");
-        else feature->SetField("specific", (sum->is_outflow()) ? "outflow": "");
-        feature->SetField("direction_error",
+        feature.set_field("node_id", id_chr);
+        if (sum->is_rivermouth()) feature.set_field("specific", "rivermouth");
+        else feature.set_field("specific", (sum->is_outflow()) ? "outflow": "");
+        feature.set_field("direction_error",
                           (sum->is_direction_error()) ? "true" : "false");
-        feature->SetField("name_error",
+        feature.set_field("name_error",
                           (sum->is_name_error()) ? "true" : "false");
-        feature->SetField("type_error",
+        feature.set_field("type_error",
                           (sum->is_type_error()) ? "true" : "false");
-        feature->SetField("spring_error",
+        feature.set_field("spring_error",
                           (sum->is_spring_error()) ? "true" : "false");
-        feature->SetField("end_error",
+        feature.set_field("end_error",
                           (sum->is_end_error()) ? "true" : "false");
-        feature->SetField("way_error",
+        feature.set_field("way_error",
                           (sum->is_way_error()) ? "true" : "false");
+        feature.add_to_layer();
 
-        if (m_layer_nodes->CreateFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to create node feature." << endl;
-        } else {
-            OGRFeature::DestroyFeature(feature);
-        }
-        if (point) OGRGeometryFactory::destroyGeometry(point);
-    }
-
-    /***
-     * unused: Change boolean value in already inserted rows.
-     */
-    void change_bool_feature(char table, const long fid, const char *field,
-                             const char *value, char *error_advice) {
-        OGRFeature *feature;
-        OGRLayer *layer;
-        switch (table) {
-            case 'r':
-                layer = m_layer_relations;
-                break;
-            case 'w':
-                layer = m_layer_ways;
-                break;
-            case 'n':
-                layer = m_layer_nodes;
-                break;
-            default:
-                cerr << "change_bool_feature expects {'r','w','n'}" <<
-                        " = {relations, ways, nodes}" << endl;
-                exit(1);
-        }
-        feature = layer->GetFeature(fid);
-        feature->SetField(field, value);
-        if (layer->SetFeature(feature) != OGRERR_NONE) {
-            cerr << "Failed to change boolean field " << error_advice << endl;
-        }
-        OGRFeature::DestroyFeature(feature);
     }
 
 //    /***

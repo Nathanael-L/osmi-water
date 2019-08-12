@@ -3,6 +3,17 @@ Reads openstreetmap data and extracts water objects, indicates logical and taggi
 
 The programme is develeped during my internship at the geofabrik. If you see some improvements, please let me know.
 
+## Building
+
+```sh
+mkdir build
+cd build
+cmake ..
+make
+```
+
+If CMake complains about missing dependencies, please check if it guessed the paths correctly. If not, run `ccmake ..` in the build directory and modify the paths.
+
 ## Map File
 
 'water.map' ist the layer configuration file for the fileserver. If you like to set up a mapserver (http://mapserver.org), take the file. Just the paths for the sqlite file must be mached.

@@ -9,6 +9,7 @@
 #include <osmium/handler.hpp>
 #include <osmium/geom/ogr.hpp>
 #include <osmium/geom/geos.hpp>
+#include <osmium_geos_factory/geos_factory.hpp>
 #include <geos/simplify/TopologyPreservingSimplifier.h>
 #include <geos/geom/prep/PreparedPolygon.h>
 
@@ -34,7 +35,7 @@ class AreaHandler: public osmium::handler::Handler {
     }
 
     void insert_in_polygon_tree(const osmium::Area &area) {
-        osmium::geom::GEOSFactory<> osmium_geos_factory;
+        osmium_geos_factory::GEOSFactory<> osmium_geos_factory;
         geos::geom::MultiPolygon *geos_multipolygon;
         try {
             geos_multipolygon = osmium_geos_factory.create_multipolygon(area)
@@ -71,35 +72,29 @@ public:
     
     void complete_polygon_tree() {
         if (count_polygons == 0) {
-            geos::geom::GeometryFactory geos_factory;
+            geos::geom::GeometryFactory::unique_ptr geos_factory = geos::geom::GeometryFactory::create();
             geos::geom::Point *point;
             geos::geom::Coordinate coord(0, 0);
-            point = geos_factory.createPoint(coord);
+            point = geos_factory->createPoint(coord);
             ds.polygon_tree.insert(point->getEnvelopeInternal(), nullptr);
         }
     }
 
     void area(const osmium::Area &area) {
         osmium::geom::OGRFactory<> ogr_factory;
-        if (is_valid(area)) {
-            OGRMultiPolygon *geom = nullptr;
-            try {
-                geom = ogr_factory.create_multipolygon(area).release();
-            } catch (osmium::geometry_error) {
-                error_message(area);
-                return;
-            } catch (...) {
-                error_message(area);
-                cerr << "Unexpected error" << endl;
-                return;
-            }
-            if (geom) {
-                ds.insert_polygon_feature(geom, area);
-                OGRGeometryFactory::destroyGeometry(geom);
-            }
+        if (!is_valid(area)) {
+            return;
+        }
+        try {
+            ds.insert_polygon_feature(ogr_factory.create_multipolygon(area), area);
             if (TagCheck::is_area_to_analyse(area)) {
                 insert_in_polygon_tree(area);
             }
+        } catch (osmium::geometry_error&) {
+            error_message(area);
+        } catch (...) {
+            error_message(area);
+            cerr << "Unexpected error" << endl;
         }
     }
 };
