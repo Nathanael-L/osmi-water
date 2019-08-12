@@ -232,35 +232,22 @@ class WaterwayCollector :
         if (!(linestrings->size())) {
             return;
         }
-        geos::geom::GeometryCollection *geom_collection = nullptr;
+        geos::geom::MultiLineString *multi_line_string = nullptr;
         try {
-            geom_collection = geom_factory->createGeometryCollection(
+            multi_line_string = geom_factory->createMultiLineString(
                               linestrings);
         } catch (...) {
-            cerr << "Failed to create geometry collection at relation: "
+            cerr << "Failed to create multilinestring at relation: "
                  << relation_id << endl;
             delete linestrings;
             return;
         }
-        geos::geom::Geometry *geos_geom = nullptr;
-        try {
-            geos_geom = geom_collection->Union().release();
-        } catch (...) {
-            cerr << "Failed to union linestrings at relation: "
-                 << relation_id << endl;
-            delete geom_collection;
-            return;
-        }
-        unique_ptr<OGRGeometry> ogr_ml {geos2ogr(geos_geom)};
         unique_ptr<OGRGeometry> ogr_multilinestring;
-        if (!strcmp(ogr_ml->getGeometryName(),"LINESTRING")) {
-            try {
-                ogr_multilinestring.reset(OGRGeometryFactory::forceToMultiLineString(ogr_ml.release()));
-            } catch (...) {
-                delete geom_collection;
-                delete geos_geom;
-                return;
-            }
+        try {
+            ogr_multilinestring = move(geos2ogr(multi_line_string));
+        } catch (...) {
+            delete multi_line_string;
+            return;
         }
         try {
             ds.insert_relation_feature(std::move(ogr_multilinestring), relation,
@@ -273,8 +260,7 @@ class WaterwayCollector :
                  << relation_id << endl;
             cerr << "  Unexpected error" << endl;
         }
-        delete geom_collection;
-        delete geos_geom;
+        delete multi_line_string;
     }
 
     void handle_relation(const osmium::Relation& relation) {
