@@ -63,17 +63,15 @@ class DataStorage {
 
         WaterWay(osmium::object_id_type first_node,
                  osmium::object_id_type last_node,
-                 const char *name, const char *type) {
-            this->first_node = first_node;
-            this->last_node = last_node;
-            this->name = name;
-            if ((!strcmp(type, "drain")) ||
-                (!strcmp(type, "brook")) ||
-                (!strcmp(type, "ditch"))) {
+                 const std::string name, const std::string& type) :
+                 first_node(first_node),
+                 last_node(last_node),
+                 name(name) {
+            if (type == "drain" || type == "brook" || type == "ditch") {
                 category = 'A';
-            } else if (!strcmp(type, "stream")) {
+            } else if (type == "stream") {
                 category = 'B';
-            } else if (!strcmp(type, "river")) {
+            } else if (type == "river") {
                 category = 'C';
             } else {
                 category = '?';
@@ -148,6 +146,10 @@ class DataStorage {
      * A ',' as separator dedicates an erroror, but is handled.
      */
     bool get_width(const char *width_chr, float &width) {
+        if (!width_chr) {
+            width = 0;
+            return false;
+        }
         string width_str = width_chr;
         bool error = false;
 
@@ -205,8 +207,8 @@ class DataStorage {
 
     void remember_way(osmium::object_id_type first_node,
                       osmium::object_id_type last_node,
-                      const char *name, const char *type) {
-        WaterWay *wway = new WaterWay(first_node, last_node, name, type);
+                      const std::string name, const std::string& type) {
+        WaterWay *wway = new WaterWay(first_node, last_node, std::move(name), type);
         waterways.push_back(wway);
         node_map[first_node].push_back(wway);
         node_map[last_node].push_back(wway);
@@ -267,15 +269,17 @@ public:
             relation_id = area.orig_id();
         }
 
-        const char *type = TagCheck::get_polygon_type(area);
-        const char *name = TagCheck::get_name(area);
+        const std::string type = TagCheck::get_polygon_type(area);
+        const char* name = area.get_value_by_key("name");
 
         try {
             gdalcpp::Feature feature(*m_layer_polygons, std::move(geom));
             feature.set_field("way_id", static_cast<int>(way_id));
             feature.set_field("relation_id", static_cast<int>(relation_id));
-            feature.set_field("type", type);
-            feature.set_field("name", name);
+            feature.set_field("type", type.c_str());
+            if (name) {
+                feature.set_field("name", name);
+            }
             feature.set_field("lastchange",
                               get_timestamp(area.timestamp()).c_str());
             feature.add_to_layer();
@@ -290,14 +294,16 @@ public:
     void insert_relation_feature(unique_ptr<OGRGeometry>&& geom,
                                  const osmium::Relation &relation,
                                  bool contains_nowaterway) {
-        const char *type = TagCheck::get_way_type(relation);
-        const char *name = TagCheck::get_name(relation);
+        const std::string type = TagCheck::get_way_type(relation);
+        const char *name = relation.get_value_by_key("name");
 
         try {
             gdalcpp::Feature feature(*m_layer_relations, std::move(geom));
             feature.set_field("relation_id", static_cast<int>(relation.id()));
-            feature.set_field("type", type);
-            feature.set_field("name", name);
+            feature.set_field("type", type.c_str());
+            if (name) {
+                feature.set_field("name", name);
+            }
             feature.set_field("lastchange",
                               get_timestamp(relation.timestamp()).c_str());
             if (contains_nowaterway)
@@ -313,10 +319,10 @@ public:
     void insert_way_feature(unique_ptr<OGRGeometry>&& geom,
                             const osmium::Way &way,
                             osmium::object_id_type rel_id) {
-        const char *type = TagCheck::get_way_type(way);
-        const char *name = TagCheck::get_name(way);
+        const std::string type = TagCheck::get_way_type(way);
         const char *width = TagCheck::get_width(way);
-        const char *construction = TagCheck::get_construction(way);
+        const std::string construction = TagCheck::get_construction(way);
+        const std::string name {way.get_value_by_key("name", "")};
 
         bool width_err;
         float w = 0;
@@ -331,13 +337,15 @@ public:
         try {
             gdalcpp::Feature feature(*m_layer_ways, std::move(geom));
             feature.set_field(0, static_cast<int>(way.id()));
-            feature.set_field(1, type);
-            feature.set_field(2, name);
+            feature.set_field(1, type.c_str());
+            if (!name.empty()) {
+                feature.set_field(2, name.c_str());
+            }
             feature.set_field(3, first_node_chr);
             feature.set_field(4, last_node_chr);
             feature.set_field(5, static_cast<int>(rel_id));
             feature.set_field("lastchange", get_timestamp(way.timestamp()).c_str());
-            feature.set_field("construction", construction);
+            feature.set_field("construction", construction.c_str());
             feature.set_field("width_error", (width_err) ? "true" : "false");
             feature.add_to_layer();
         } catch (osmium::geometry_error& err) {
@@ -345,7 +353,7 @@ public:
                  << way.id() << endl;
         }
 
-        remember_way(first_node, last_node, name, type);
+        remember_way(first_node, last_node, std::move(name), type);
     }
 
     void insert_node_feature(osmium::Location location,
@@ -354,7 +362,7 @@ public:
         std::unique_ptr<OGRPoint> point;
         try {
             point = m_ogr_factory.create_point(location);
-        } catch (osmium::geometry_error) {
+        } catch (osmium::geometry_error&) {
             cerr << "Error at node: " << node_id << endl;
             return;
         } catch (...) {

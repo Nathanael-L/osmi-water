@@ -8,6 +8,7 @@
 #ifndef TAGCHECK_HPP_
 #define TAGCHECK_HPP_
 
+#include <string>
 #include <osmium/osm/tag.hpp>
 #include <osmium/tags/filter.hpp>
 #include <osmium/tags/tags_filter.hpp>
@@ -17,17 +18,17 @@ using namespace std;
 
 class TagCheck {
 
-    static const char *get_waterway_type(const char *raw_type) {
+    static const std::string get_waterway_type(const char *raw_type) {
         if (!raw_type) {
-            return nullptr;
+            return "";
         }
         if ((strcmp(raw_type, "river")) && (strcmp(raw_type, "stream")) 
                 && (strcmp(raw_type, "drain")) && (strcmp(raw_type, "brook"))
                 && (strcmp(raw_type, "canal")) && (strcmp(raw_type,"ditch"))
                 && (strcmp(raw_type, "riverbank"))) {
-            return strdup("other\0");
+            return "other";
         } else {
-            return strdup(raw_type);
+            return raw_type;
         }
     }
 
@@ -164,66 +165,51 @@ public:
         }
     }
 
-    static const char *get_polygon_type(const osmium::Area &area) {
-        const char *type;
+    static const std::string get_polygon_type(const osmium::Area &area) {
         const char *natural = area.get_value_by_key("natural");
         if ((natural) && (!strcmp(natural, "coastline"))) {
-            type = "coastline";
-        } else {
-            type = get_waterway_type(area.get_value_by_key("waterway"));
-            //if (!type) {
-            //    type = area.get_value_by_key("water");
-            //}
-            if (!type) {
-                type = area.get_value_by_key("landuse");
-            }
-            if (!type) type = "";
+            return "coastline";
         }
-        return type;
+        if (get_waterway_type(area.get_value_by_key("waterway")).empty()) {
+            return area.get_value_by_key("landuse", "");
+        }
+        return "";
     }
 
-    static const char *get_way_type(const osmium::OSMObject &osm_object) {
-        const char *type;
+    static const std::string get_way_type(const osmium::OSMObject &osm_object) {
         const char *waterway = osm_object.get_value_by_key("waterway");
-        type = get_waterway_type(waterway);
-        if (!type) {
+        std::string type = get_waterway_type(waterway);
+        if (type.empty()) {
             const char *natural = osm_object.get_value_by_key("natural");
             if ((natural) && (!strcmp(natural, "coastline"))) {
-                type = "coastline";
+                return "coastline";
+            } else {
+                return "";
             }
         }
-        if (!type) type = "";
         return type;
-    }
-
-    static const char *get_name(const osmium::OSMObject &osm_object) {
-        const char *name = osm_object.get_value_by_key("name");
-        if (!name) name = "";
-        return name;
     }
 
     static const char *get_width(const osmium::OSMObject &osm_object) {
-        const char *width;
-        if (osm_object.get_value_by_key("width")) {
-            width = osm_object.get_value_by_key("width");
-        } else if (osm_object.get_value_by_key("est_width")) {
-            width = osm_object.get_value_by_key("est_width");
-        } else {
-            width = "";
+        const char *width = osm_object.get_value_by_key("width");
+        if (width) {
+            return width;
+        }
+        width = osm_object.get_value_by_key("est_width");
+        if (width) {
+            return width;
         }
         return width;
     }
 
-    static const char *get_construction(const osmium::OSMObject &osm_object) {
-        const char *construction;
+    static const std::string get_construction(const osmium::OSMObject &osm_object) {
         if (osm_object.get_value_by_key("bridge")) {
-            construction = "bridge";
-        } else if (osm_object.get_value_by_key("tunnel")) {
-            construction = "tunnel";
-        } else {
-            construction = "";
+            return "bridge";
         }
-        return construction;
+        if (osm_object.get_value_by_key("tunnel")) {
+            return "tunnel";
+        }
+        return "";
     }
 };
 
