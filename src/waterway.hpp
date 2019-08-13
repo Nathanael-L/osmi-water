@@ -378,7 +378,8 @@ public:
 
             count_first_node = 0; count_last_node = 0;
             names.clear(); category_in.clear(); category_out.clear();
-            for (auto wway : node.second) {
+            for (auto wway_idx : node.second) {
+                DataStorage::WaterWay* wway = &(ds.get_waterway(wway_idx));
                 if (wway->first_node == node_id) {
                     count_first_node++;
                     names.push_back(wway->name.c_str());

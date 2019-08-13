@@ -29,14 +29,7 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type,
 
 
 class DataStorage {
-    std::string output_filename;
-    osmium::geom::OGRFactory<> m_ogr_factory;
-    std::unique_ptr<gdalcpp::Dataset> m_data_source;
-    std::unique_ptr<gdalcpp::Layer> m_layer_polygons;
-    std::unique_ptr<gdalcpp::Layer> m_layer_relations;
-    std::unique_ptr<gdalcpp::Layer> m_layer_ways;
-    std::unique_ptr<gdalcpp::Layer> m_layer_nodes;
-
+public:
     /***
      * Structure to remember the waterways according to the firstnodes and
      * lastnodes of the waterways.
@@ -71,6 +64,16 @@ class DataStorage {
             }
         }
     };
+
+private:
+    std::string output_filename;
+    std::vector<WaterWay> m_waterways;
+    osmium::geom::OGRFactory<> m_ogr_factory;
+    std::unique_ptr<gdalcpp::Dataset> m_data_source;
+    std::unique_ptr<gdalcpp::Layer> m_layer_polygons;
+    std::unique_ptr<gdalcpp::Layer> m_layer_relations;
+    std::unique_ptr<gdalcpp::Layer> m_layer_ways;
+    std::unique_ptr<gdalcpp::Layer> m_layer_nodes;
 
     void init_db() {
         CPLSetConfigOption("OGR_SQLITE_PRAGMA", "journal_mode=OFF,TEMP_STORE=MEMORY,temp_store=memory,LOCKING_MODE=EXCLUSIVE");
@@ -199,9 +202,10 @@ class DataStorage {
     void remember_way(osmium::object_id_type first_node,
                       osmium::object_id_type last_node,
                       const std::string name, const std::string& type) {
-        WaterWay *wway = new WaterWay(first_node, last_node, std::move(name), type);
-        node_map[first_node].push_back(wway);
-        node_map[last_node].push_back(wway);
+        m_waterways.emplace_back(first_node, last_node, std::move(name), type);
+        size_t last_idx = m_waterways.size() - 1;
+        node_map[first_node].push_back(last_idx);
+        node_map[last_node].push_back(last_idx);
     }
 
     void destroy_polygons() {
@@ -224,15 +228,15 @@ public:
      * polygon_tree: contains prepared polygons of all water polygons except of
      * riverbanks found in pass 4. 
      */
-    google::sparse_hash_map<osmium::object_id_type, std::vector<WaterWay*>> node_map;
+    google::sparse_hash_map<osmium::object_id_type, std::vector<std::size_t>> node_map;
     google::sparse_hash_map<osmium::object_id_type, ErrorSum*> error_map;
-//    geos::index::strtree::STRtree error_tree;
     google::sparse_hash_set<geos::geom::prep::PreparedPolygon*> prepared_polygon_set;
     google::sparse_hash_set<geos::geom::MultiPolygon*> multipolygon_set;
     geos::index::strtree::STRtree polygon_tree;
 
     explicit DataStorage(std::string outfile) :
             output_filename(outfile),
+            m_waterways(),
             m_ogr_factory() {
         init_db();
         node_map.set_deleted_key(-1);
@@ -243,11 +247,10 @@ public:
 
     ~DataStorage() {
         destroy_polygons();
-        for (auto node : node_map) {
-            for (auto entry : node.second) {
-                delete entry;
-            }
-        }
+    }
+
+    WaterWay& get_waterway(const size_t offset) {
+        return m_waterways.at(offset);
     }
 
     void insert_polygon_feature(std::unique_ptr<OGRMultiPolygon>&& geom, const osmium::Area &area) {
