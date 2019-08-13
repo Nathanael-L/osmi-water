@@ -47,22 +47,22 @@ class WaterwayCollector :
     osmium_geos_factory::GEOSFactory<> osmium_geos_factory;
     geos::geom::GeometryFactory::unique_ptr geom_factory;
 
-    unique_ptr<OGRGeometry> geos2ogr(const geos::geom::Geometry *g)
+    std::unique_ptr<OGRGeometry> geos2ogr(const geos::geom::Geometry *g)
     {
         OGRGeometry *out;
 
         geos::io::WKBWriter wkbWriter;
         wkbWriter.setOutputDimension(g->getCoordinateDimension());
-        ostringstream ss;
+        std::ostringstream ss;
         wkbWriter.write(*g, ss);
-        string wkb = ss.str();
+        std::string wkb = ss.str();
         if (OGRGeometryFactory::createFromWkb((unsigned char *) wkb.c_str(),
                                               nullptr, &out, wkb.size())
             != OGRERR_NONE ) {
             assert(false);
-            return unique_ptr<OGRGeometry>{};
+            return std::unique_ptr<OGRGeometry>{};
         }
-        return unique_ptr<OGRGeometry>{out};
+        return std::unique_ptr<OGRGeometry>{out};
     }
 
     /***
@@ -79,7 +79,7 @@ class WaterwayCollector :
     /***
     * name error: Nodes, that connect two ways with different names.
     */
-    void detect_name_error(vector<const char*> &names, ErrorSum *sum) {
+    void detect_name_error(std::vector<const char*> &names, ErrorSum *sum) {
         if (names.size() == 2) {
             if (strcmp(names[0],names[1])) {
                 sum->set_name_error();
@@ -99,9 +99,8 @@ class WaterwayCollector :
      * or outflow. If its not, detect spring or end error in pass 3/4.
      * Remember if its river or stream. Ignore other types of waterway.
      */
-    void detect_flow_errors(vector<char> &category_in,
-                            vector<char> &category_out,
-                            ErrorSum *sum) {
+    void detect_flow_errors(std::vector<char> &category_in,
+            std::vector<char> &category_out, ErrorSum *sum) {
         char max_in = 0;
         char max_out = 0;
         if (category_in.size())
@@ -143,7 +142,7 @@ class WaterwayCollector :
             try {
                 location = location_handler.get_node_location(node_id);
             } catch (...) {
-                cerr << "node without location: " << node_id << endl;
+                std::cerr << "node without location: " << node_id << '\n';
                 return false;
             }
             ds.insert_node_feature(location, node_id, sum);
@@ -174,7 +173,7 @@ class WaterwayCollector :
     void create_ways(const osmium::Relation &relation,
                      const osmium::object_id_type relation_id,
                      bool &contains_nowaterway_ways,
-                     vector<geos::geom::Geometry *> *linestrings) {
+                     std::vector<geos::geom::Geometry *> *linestrings) {
         
         for (auto& member : relation.members()) {
             if (member_is_valid(member)) {
@@ -191,8 +190,8 @@ class WaterwayCollector :
                     insert_way_error(*way);
                     continue;
                 } catch (...) {
-                    cerr << "Error at way: " << way->id() << endl;
-                    cerr << "  Unexpected error" << endl;
+                    std::cerr << "Error at way: " << way->id() << '\n';
+                    std::cerr << "  Unexpected error\n";
                     continue;
                 }
                 if (linestr) {
@@ -204,17 +203,17 @@ class WaterwayCollector :
                 if (TagCheck::has_waterway_tag(*way)) {
                     contains_nowaterway_ways = true;
                 }
-                unique_ptr<OGRGeometry> ogr_linestring = geos2ogr(linestr);
+                std::unique_ptr<OGRGeometry> ogr_linestring = geos2ogr(linestr);
 
                 try {
                     ds.insert_way_feature(move(ogr_linestring), *way, relation_id);
                 } catch (osmium::geometry_error&) {
-                    cerr << "Inserting to table failed for way: "
-                         << way->id() << endl;
+                    std::cerr << "Inserting to table failed for way: "
+                         << way->id() << '\n';
                 } catch (...) {
-                    cerr << "Inserting to table failed for way: "
-                         << way->id() << endl;;
-                    cerr << "  Unexpected error" << endl;
+                    std::cerr << "Inserting to table failed for way: "
+                         << way->id() << '\n';
+                    std::cerr << "  Unexpected error\n";
                 }
             }
         }
@@ -227,7 +226,7 @@ class WaterwayCollector :
     void create_relation(const osmium::Relation &relation,
                          const osmium::object_id_type relation_id,
                          bool &contains_nowaterway_ways,
-                         vector<geos::geom::Geometry *> *linestrings) {
+                         std::vector<geos::geom::Geometry *> *linestrings) {
 
         if (!(linestrings->size())) {
             return;
@@ -237,12 +236,12 @@ class WaterwayCollector :
             multi_line_string = geom_factory->createMultiLineString(
                               linestrings);
         } catch (...) {
-            cerr << "Failed to create multilinestring at relation: "
-                 << relation_id << endl;
+            std::cerr << "Failed to create multilinestring at relation: "
+                 << relation_id << '\n';
             delete linestrings;
             return;
         }
-        unique_ptr<OGRGeometry> ogr_multilinestring;
+        std::unique_ptr<OGRGeometry> ogr_multilinestring;
         try {
             ogr_multilinestring = move(geos2ogr(multi_line_string));
         } catch (...) {
@@ -253,20 +252,20 @@ class WaterwayCollector :
             ds.insert_relation_feature(std::move(ogr_multilinestring), relation,
                                        contains_nowaterway_ways);
         } catch (osmium::geometry_error&) {
-            cerr << "Inserting to table failed for relation: "
-                 << relation_id << endl;
+            std::cerr << "Inserting to table failed for relation: "
+                 << relation_id << '\n';
         } catch (...) {
-            cerr << "Inserting to table failed for relation: "
-                 << relation_id << endl;
-            cerr << "  Unexpected error" << endl;
+            std::cerr << "Inserting to table failed for relation: "
+                 << relation_id << '\n';
+            std::cerr << "  Unexpected error\n";
         }
         delete multi_line_string;
     }
 
     void handle_relation(const osmium::Relation& relation) {
         const osmium::object_id_type relation_id = relation.id();
-        vector<geos::geom::Geometry *> *linestrings;
-        linestrings = new vector<geos::geom::Geometry *>();
+        std::vector<geos::geom::Geometry *> *linestrings;
+        linestrings = new std::vector<geos::geom::Geometry *>();
         bool contains_nowaterway_ways = false;
         
         create_ways(relation, relation_id, contains_nowaterway_ways,
@@ -278,7 +277,7 @@ class WaterwayCollector :
 
     void create_single_way(const osmium::Way &way) {
         osmium::geom::OGRFactory<> ogr_factory;
-        unique_ptr<OGRGeometry> linestring;
+        std::unique_ptr<OGRGeometry> linestring;
         try {
             linestring = ogr_factory.create_linestring(way,
                          osmium::geom::use_nodes::unique,
@@ -287,20 +286,20 @@ class WaterwayCollector :
             insert_way_error(way);
             return;
         } catch (...) {
-            cerr << "Error at way: " << way.id() << endl;
-            cerr << "  Unexpected error" << endl;
+            std::cerr << "Error at way: " << way.id() << '\n';
+            std::cerr << "  Unexpected error\n";
             return;
         }
 
         try {
             ds.insert_way_feature(std::move(linestring), way, 0);
         } catch (osmium::geometry_error&) {
-            cerr << "Inserting to table failed for way: "
-                 << way.id() << endl;
+            std::cerr << "Inserting to table failed for way: "
+                 << way.id() << '\n';
         } catch (...) {
-            cerr << "Inserting to table failed for way: "
-                 << way.id() << endl;
-            cerr << "  Unexpected error" << endl;
+            std::cerr << "Inserting to table failed for way: "
+                 << way.id() << '\n';
+            std::cerr << "  Unexpected error\n";
         }
     }
 
@@ -370,9 +369,9 @@ public:
     void analyse_nodes() {
         int count_first_node, count_last_node;
         long fid = 1;
-        vector<const char*> names;
-        vector<char> category_in;
-        vector<char> category_out;
+        std::vector<const char*> names;
+        std::vector<char> category_in;
+        std::vector<char> category_out;
         for (auto node : ds.node_map) {
             ErrorSum *sum = new ErrorSum();
             osmium::object_id_type node_id = node.first;

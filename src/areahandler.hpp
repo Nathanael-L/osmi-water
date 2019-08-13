@@ -26,12 +26,12 @@ class AreaHandler: public osmium::handler::Handler {
     }
 
     void error_message(const osmium::Area &area) {
-        cerr << "AreaHandler: Error at ";
+        std::cerr << "AreaHandler: Error at ";
         if (area.from_way())
-            cerr << "way: ";
+            std::cerr << "way: ";
         else
-            cerr << "relation: ";
-        cerr << area.orig_id() << endl;
+            std::cerr << "relation: ";
+        std::cerr << area.orig_id() << '\n';
     }
 
     void insert_in_polygon_tree(const osmium::Area &area) {
@@ -42,7 +42,7 @@ class AreaHandler: public osmium::handler::Handler {
                                             .release();
         } catch (...) {
             error_message(area);
-            cerr << "While init polygon_tree." << endl;
+            std::cerr << "While init polygon_tree.\n";
             return;
         }
 
@@ -52,7 +52,7 @@ class AreaHandler: public osmium::handler::Handler {
                 prepared_polygon = new prepared_polygon_type(geos_polygon);
             } catch (...) {
                 error_message(area);
-                cerr << "While init polygon_tree." << endl;
+                std::cerr << "While init polygon_tree.\n";
                 continue;
             }
             const geos::geom::Envelope *envelope;
@@ -94,7 +94,7 @@ public:
             error_message(area);
         } catch (...) {
             error_message(area);
-            cerr << "Unexpected error" << endl;
+            std::cerr << "Unexpected error\n";
         }
     }
 };

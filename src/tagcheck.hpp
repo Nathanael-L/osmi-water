@@ -14,8 +14,6 @@
 #include <osmium/tags/tags_filter.hpp>
 
 
-using namespace std;
-
 class TagCheck {
 
     static const std::string get_waterway_type(const char *raw_type) {

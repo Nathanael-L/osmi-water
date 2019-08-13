@@ -39,8 +39,6 @@
 #include "falsepositives.hpp"
 #include "areahandler.hpp"
 
-using namespace std;
-
 typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type,
         osmium::Location> index_neg_type;
 typedef osmium::index::map::SparseMemArray<osmium::unsigned_object_id_type,
@@ -51,10 +49,10 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type, index_neg_type>
 typedef geos::geom::LineString linestring_type;
 
 void print_help() {
-    cout << "osmi [OPTIONS] INFILE OUTFILE\n\n"
+    std::cout << "osmi [OPTIONS] INFILE OUTFILE\n\n"
             << "  -h, --help           This help message\n"
             //<< "  -d, --debug          Enable debug output !NOT IN USE\n"
-            << endl;
+            << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -81,17 +79,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    string input_filename;
-    string output_filename;
+    std::string input_filename;
+    std::string output_filename;
     int remaining_args = argc - optind;
     if ((remaining_args < 2) || (remaining_args > 4)) {
-        cerr << "Usage: " << argv[0] << " [OPTIONS] INFILE OUTFILE" << endl;
-        cerr << remaining_args;
+        std::cerr << "Usage: " << argv[0] << " [OPTIONS] INFILE OUTFILE" << '\n';
+        std::cerr << remaining_args;
         exit(1);
     } else if (remaining_args == 2) {
         input_filename = argv[optind];
         output_filename = argv[optind + 1];
-        cout << "in: " << input_filename << " out: " << output_filename << endl;
+        std::cout << "in: " << input_filename << " out: " << output_filename << '\n';
     } else {
         input_filename = "-";
     }
@@ -113,16 +111,16 @@ int main(int argc, char* argv[]) {
      * Pass 1: waterway_collector and waterpolygon_collector remember the ways
      * according to a relation.
      */
-    cerr << "Pass 1..." << endl;
+    std::cerr << "Pass 1...\n";
     osmium::relations::read_relations(osmium::io::File(input_filename), waterway_collector, waterpolygon_collector);
-    cerr << "Pass 1 done" << endl;
+    std::cerr << "Pass 1 done\n";;
 
     /***
      * Pass 2: Collect all waterways in and not in any relation.
      * Insert features to ways and relations table.
      * analyse_nodes is detecting all possibly errors and mouths.
      */
-    cerr << "Pass 2..." << endl;
+    std::cerr << "Pass 2...\n";
     AreaHandler area_handler(ds);
     osmium::io::Reader reader2(input_filename);
     osmium::apply(reader2, location_handler, waterway_collector.handler(),
@@ -134,25 +132,25 @@ int main(int argc, char* argv[]) {
     waterway_collector.ways_in_incomplete_relation();
     waterway_collector.analyse_nodes();
     reader2.close();
-    cerr << "Pass 2 done" << endl;
+    std::cerr << "Pass 2 done\n";
 
     /***
      * Pass 3: Indicate false positives by comparing the error nodes with the
      * way nodes between the firstnode and the lastnode.
      */
-    cerr << "Pass 3..." << endl;
+    std::cerr << "Pass 3...\n";
     osmium::io::Reader reader3(input_filename, osmium::osm_entity_bits::way);
     IndicateFalsePositives indicate_false_positives(ds, location_handler);
     osmium::apply(reader3, indicate_false_positives);
     reader3.close();
     area_handler.complete_polygon_tree();
     indicate_false_positives.check_area();
-    cerr << "Pass 3 done" << endl;
+    std::cerr << "Pass 3 done\n";
 
     /***
      * Insert the error nodes into the nodes table.
      */
     ds.insert_error_nodes(location_handler);
 
-    cout << "ready" << endl;
+    std::cout << "ready\n";
 }

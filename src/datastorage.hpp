@@ -15,8 +15,6 @@
 
 #include <gdalcpp.hpp>
 
-using namespace std;
-
 typedef osmium::index::map::Dummy<osmium::unsigned_object_id_type,
                                   osmium::Location>
         index_neg_type;
@@ -36,13 +34,13 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type,
 //};
 
 class DataStorage {
-    string output_filename;
+    std::string output_filename;
     osmium::geom::OGRFactory<> m_ogr_factory;
-    unique_ptr<gdalcpp::Dataset> m_data_source;
-    unique_ptr<gdalcpp::Layer> m_layer_polygons;
-    unique_ptr<gdalcpp::Layer> m_layer_relations;
-    unique_ptr<gdalcpp::Layer> m_layer_ways;
-    unique_ptr<gdalcpp::Layer> m_layer_nodes;
+    std::unique_ptr<gdalcpp::Dataset> m_data_source;
+    std::unique_ptr<gdalcpp::Layer> m_layer_polygons;
+    std::unique_ptr<gdalcpp::Layer> m_layer_relations;
+    std::unique_ptr<gdalcpp::Layer> m_layer_ways;
+    std::unique_ptr<gdalcpp::Layer> m_layer_nodes;
 
     /***
      * Structure to remember the waterways according to the firstnodes and
@@ -58,7 +56,7 @@ class DataStorage {
     struct WaterWay {
         osmium::object_id_type first_node;
         osmium::object_id_type last_node;
-        string name;
+        std::string name;
         char category;
 
         WaterWay(osmium::object_id_type first_node,
@@ -79,7 +77,7 @@ class DataStorage {
         }
     };
 
-    vector<WaterWay*> waterways;
+    std::vector<WaterWay*> waterways;
 
     void init_db() {
         CPLSetConfigOption("OGR_SQLITE_PRAGMA", "journal_mode=OFF,TEMP_STORE=MEMORY,temp_store=memory,LOCKING_MODE=EXCLUSIVE");
@@ -87,11 +85,11 @@ class DataStorage {
         CPLSetConfigOption("OGR_SQLITE_JOURNAL", "OFF");
         CPLSetConfigOption("OGR_SQLITE_SYNCHRONOUS", "OFF");
 
-        m_data_source = unique_ptr<gdalcpp::Dataset>{new gdalcpp::Dataset("SQlite", output_filename, gdalcpp::SRS(4326), {"SPATIALITE=YES"})};
-        m_layer_polygons = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "polygons", wkbMultiPolygon, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
-        m_layer_relations = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "relations", wkbMultiLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
-        m_layer_ways = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "ways", wkbLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
-        m_layer_nodes = unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "nodes", wkbPoint, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_data_source = std::unique_ptr<gdalcpp::Dataset>{new gdalcpp::Dataset("SQlite", output_filename, gdalcpp::SRS(4326), {"SPATIALITE=YES"})};
+        m_layer_polygons = std::unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "polygons", wkbMultiPolygon, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_relations = std::unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "relations", wkbMultiLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_ways = std::unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "ways", wkbLineString, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
+        m_layer_nodes = std::unique_ptr<gdalcpp::Layer>{new gdalcpp::Layer(*m_data_source, "nodes", wkbPoint, {"SPATIAL_INDEX=NO", "COMPRESS_GEOM=NO"})};
 
         /*---- TABLE POLYGONS ----*/
         m_layer_polygons->add_field("way_id", OFTInteger, 12);
@@ -133,8 +131,8 @@ class DataStorage {
         m_layer_nodes->add_field("way_error", OFTString, 6);
     }
 
-    const string get_timestamp(osmium::Timestamp timestamp) {
-        string time_str = timestamp.to_iso();
+    const std::string get_timestamp(osmium::Timestamp timestamp) {
+        std::string time_str = timestamp.to_iso();
         time_str.replace(10, 1, " ");
         time_str.replace(19, 1, "");
         return time_str;
@@ -150,10 +148,10 @@ class DataStorage {
             width = 0;
             return false;
         }
-        string width_str = width_chr;
+        std::string width_str = width_chr;
         bool error = false;
 
-        if (width_str.find(",") != string::npos) {
+        if (width_str.find(",") != std::string::npos) {
             width_str.replace(width_str.find(","), 1, ".");
             error = true;
             width_chr = width_str.c_str();
@@ -195,9 +193,9 @@ class DataStorage {
         return error;
     }
 
-    string width2string(float &width) {
+    std::string width2string(float &width) {
         int rounded_width = static_cast<int> (round(width * 10));
-        string width_str = to_string(rounded_width);
+        std::string width_str = std::to_string(rounded_width);
         if (width_str.length() == 1) {
             width_str.insert(width_str.begin(), '0');
         }
@@ -234,14 +232,14 @@ public:
      * polygon_tree: contains prepared polygons of all water polygons except of
      * riverbanks found in pass 4. 
      */
-    google::sparse_hash_map<osmium::object_id_type, vector<WaterWay*>> node_map;
+    google::sparse_hash_map<osmium::object_id_type, std::vector<WaterWay*>> node_map;
     google::sparse_hash_map<osmium::object_id_type, ErrorSum*> error_map;
 //    geos::index::strtree::STRtree error_tree;
     google::sparse_hash_set<geos::geom::prep::PreparedPolygon*> prepared_polygon_set;
     google::sparse_hash_set<geos::geom::MultiPolygon*> multipolygon_set;
     geos::index::strtree::STRtree polygon_tree;
 
-    explicit DataStorage(string outfile) :
+    explicit DataStorage(std::string outfile) :
             output_filename(outfile),
             m_ogr_factory() {
         init_db();
@@ -258,7 +256,7 @@ public:
         }
     }
 
-    void insert_polygon_feature(unique_ptr<OGRMultiPolygon>&& geom, const osmium::Area &area) {
+    void insert_polygon_feature(std::unique_ptr<OGRMultiPolygon>&& geom, const osmium::Area &area) {
         osmium::object_id_type way_id;
         osmium::object_id_type relation_id;
         if (area.from_way()) {
@@ -284,14 +282,14 @@ public:
                               get_timestamp(area.timestamp()).c_str());
             feature.add_to_layer();
         } catch (osmium::geometry_error& err) {
-            cerr << "Failed to create geometry feature for polygon of ";
-            if (area.from_way()) cerr << "way: ";
-            else cerr << "relation: ";
-            cerr << area.orig_id() << endl;
+            std::cerr << "Failed to create geometry feature for polygon of ";
+            if (area.from_way()) std::cerr << "way: ";
+            else std::cerr << "relation: ";
+            std::cerr << area.orig_id() << '\n';
         }
     }
 
-    void insert_relation_feature(unique_ptr<OGRGeometry>&& geom,
+    void insert_relation_feature(std::unique_ptr<OGRGeometry>&& geom,
                                  const osmium::Relation &relation,
                                  bool contains_nowaterway) {
         const std::string type = TagCheck::get_way_type(relation);
@@ -312,11 +310,11 @@ public:
                 feature.set_field("nowaterway_error", "false");
             feature.add_to_layer();
         } catch (osmium::geometry_error& err) {
-            cerr << "Failed to create relation feature:" << err.what() << "\n";
+            std::cerr << "Failed to create relation feature:" << err.what() << "\n";
         }
     }
 
-    void insert_way_feature(unique_ptr<OGRGeometry>&& geom,
+    void insert_way_feature(std::unique_ptr<OGRGeometry>&& geom,
                             const osmium::Way &way,
                             osmium::object_id_type rel_id) {
         const std::string type = TagCheck::get_way_type(way);
@@ -349,8 +347,8 @@ public:
             feature.set_field("width_error", (width_err) ? "true" : "false");
             feature.add_to_layer();
         } catch (osmium::geometry_error& err) {
-            cerr << "Failed to create geometry feature for way: "
-                 << way.id() << endl;
+            std::cerr << "Failed to create geometry feature for way: "
+                 << way.id() << '\n';
         }
 
         remember_way(first_node, last_node, std::move(name), type);
@@ -363,11 +361,11 @@ public:
         try {
             point = m_ogr_factory.create_point(location);
         } catch (osmium::geometry_error&) {
-            cerr << "Error at node: " << node_id << endl;
+            std::cerr << "Error at node: " << node_id << '\n';
             return;
         } catch (...) {
-            cerr << "Error at node: " << node_id << endl 
-                 << "Unexpected error" << endl;
+            std::cerr << "Error at node: " << node_id << '\n'
+                 << "Unexpected error" << '\n';
             return;
         }
 
