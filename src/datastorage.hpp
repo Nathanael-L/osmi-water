@@ -27,11 +27,6 @@ typedef osmium::handler::NodeLocationsForWays<index_pos_type,
                                               index_neg_type>
         location_handler_type;
 
-//struct OGRGeometryDeleter {
-//  void operator()(OGRGeometry* geom) const {
-//    OGRGeometryFactory::destroyGeometry(geom);
-//  }
-//};
 
 class DataStorage {
     std::string output_filename;
@@ -76,8 +71,6 @@ class DataStorage {
             }
         }
     };
-
-    std::vector<WaterWay*> waterways;
 
     void init_db() {
         CPLSetConfigOption("OGR_SQLITE_PRAGMA", "journal_mode=OFF,TEMP_STORE=MEMORY,temp_store=memory,LOCKING_MODE=EXCLUSIVE");
@@ -207,7 +200,6 @@ class DataStorage {
                       osmium::object_id_type last_node,
                       const std::string name, const std::string& type) {
         WaterWay *wway = new WaterWay(first_node, last_node, std::move(name), type);
-        waterways.push_back(wway);
         node_map[first_node].push_back(wway);
         node_map[last_node].push_back(wway);
     }
@@ -251,8 +243,10 @@ public:
 
     ~DataStorage() {
         destroy_polygons();
-        for (auto wway : waterways) {
-            delete wway;
+        for (auto node : node_map) {
+            for (auto entry : node.second) {
+                delete entry;
+            }
         }
     }
 
