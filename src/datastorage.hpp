@@ -208,15 +208,6 @@ private:
         node_map[last_node].push_back(last_idx);
     }
 
-    void destroy_polygons() {
-        for (auto polygon : prepared_polygon_set) {
-            delete polygon;
-        }
-        for (auto multipolygon : multipolygon_set) {
-            delete multipolygon;
-        }
-    }
-
 public:
     /***
      * node_map: Contains all first_nodes and last_nodes of found waterways with
@@ -230,8 +221,8 @@ public:
      */
     google::sparse_hash_map<osmium::object_id_type, std::vector<std::size_t>> node_map;
     google::sparse_hash_map<osmium::object_id_type, ErrorSum*> error_map;
-    google::sparse_hash_set<geos::geom::prep::PreparedPolygon*> prepared_polygon_set;
-    google::sparse_hash_set<geos::geom::MultiPolygon*> multipolygon_set;
+    std::vector<std::unique_ptr<geos::geom::prep::PreparedPolygon>> prepared_polygon_set;
+    std::vector<std::unique_ptr<geos::geom::MultiPolygon>> multipolygon_set;
     geos::index::strtree::STRtree polygon_tree;
 
     explicit DataStorage(std::string outfile) :
@@ -241,12 +232,6 @@ public:
         init_db();
         node_map.set_deleted_key(-1);
         error_map.set_deleted_key(-1);
-        prepared_polygon_set.set_deleted_key(nullptr);
-        multipolygon_set.set_deleted_key(nullptr);
-    }
-
-    ~DataStorage() {
-        destroy_polygons();
     }
 
     WaterWay& get_waterway(const size_t offset) {
