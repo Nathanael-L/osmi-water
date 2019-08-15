@@ -6,8 +6,6 @@
 #ifndef ERRORSUM_HPP_
 #define ERRORSUM_HPP_
 
-using namespace std;
-
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
 class ErrorSum {

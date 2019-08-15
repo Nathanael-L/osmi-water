@@ -40,12 +40,12 @@ class IndicateFalsePositives: public osmium::handler::Handler {
     }
 
     void errormsg(const osmium::Area &area) {
-        cerr << "IndicateFalsePositives: Error at ";
+        std::cerr << "IndicateFalsePositives: Error at ";
         if (area.from_way())
-            cerr << "way: ";
+            std::cerr << "way: ";
         else
-            cerr << "relation: ";
-        cerr << area.orig_id() << endl;
+            std::cerr << "relation: ";
+        std::cerr << area.orig_id() << '\n';
     }
 
     /***
@@ -122,11 +122,11 @@ public:
                 location = location_handler.get_node_location(node_id);
                 point = geos_factory.create_point(location).release();
             } catch (...) {
-                cerr << "Error at node: " << node_id
-                     << " - not able to create point of location." << endl;
+                std::cerr << "Error at node: " << node_id
+                     << " - not able to create point of location.\n";
                 continue;
             }
-            vector<void *> results;
+            std::vector<void *> results;
             ds.polygon_tree.query(point->getEnvelopeInternal(), results);
             if (results.size()) {
                 for (auto result : results) {

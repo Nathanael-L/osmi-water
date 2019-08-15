@@ -26,42 +26,41 @@ class AreaHandler: public osmium::handler::Handler {
     }
 
     void error_message(const osmium::Area &area) {
-        cerr << "AreaHandler: Error at ";
+        std::cerr << "AreaHandler: Error at ";
         if (area.from_way())
-            cerr << "way: ";
+            std::cerr << "way: ";
         else
-            cerr << "relation: ";
-        cerr << area.orig_id() << endl;
+            std::cerr << "relation: ";
+        std::cerr << area.orig_id() << '\n';
     }
 
     void insert_in_polygon_tree(const osmium::Area &area) {
         osmium_geos_factory::GEOSFactory<> osmium_geos_factory;
-        geos::geom::MultiPolygon *geos_multipolygon;
+        std::unique_ptr<geos::geom::MultiPolygon> geos_multipolygon;
         try {
-            geos_multipolygon = osmium_geos_factory.create_multipolygon(area)
-                                            .release();
+            geos_multipolygon = std::move(osmium_geos_factory.create_multipolygon(area));
         } catch (...) {
             error_message(area);
-            cerr << "While init polygon_tree." << endl;
+            std::cerr << "While init polygon_tree.\n";
             return;
         }
 
         for (auto geos_polygon : *geos_multipolygon) {
-            prepared_polygon_type *prepared_polygon;
+            std::unique_ptr<prepared_polygon_type> prepared_polygon;
             try {
-                prepared_polygon = new prepared_polygon_type(geos_polygon);
+                prepared_polygon.reset(new prepared_polygon_type(geos_polygon));
             } catch (...) {
                 error_message(area);
-                cerr << "While init polygon_tree." << endl;
+                std::cerr << "While init polygon_tree.\n";
                 continue;
             }
             const geos::geom::Envelope *envelope;
             envelope = geos_polygon->getEnvelopeInternal();
-            ds.polygon_tree.insert(envelope, prepared_polygon);
+            ds.polygon_tree.insert(envelope, prepared_polygon.get());
+            ds.prepared_polygon_set.push_back(std::move(prepared_polygon));
             count_polygons++;
-            ds.prepared_polygon_set.insert(prepared_polygon); 
         }
-        ds.multipolygon_set.insert(geos_multipolygon);
+        ds.multipolygon_set.push_back(std::move(geos_multipolygon));
     }
 
 public:
@@ -94,7 +93,7 @@ public:
             error_message(area);
         } catch (...) {
             error_message(area);
-            cerr << "Unexpected error" << endl;
+            std::cerr << "Unexpected error\n";
         }
     }
 };
