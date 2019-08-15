@@ -12,6 +12,7 @@
 
 #include <memory>
 #include <vector>
+#include <google/sparse_hash_map>
 
 #include <gdalcpp.hpp>
 

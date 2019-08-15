@@ -28,8 +28,6 @@
 #include <geos/geom/GeometryFactory.h>
 #include <geos/index/strtree/STRtree.h>
 #include <geos/io/WKBWriter.h>
-#include <google/sparse_hash_set>
-#include <google/sparse_hash_map>
 
 #include "errorsum.hpp"
 #include "waterway.hpp"
